@@ -1,0 +1,16 @@
+# Lo que NO debe desplegarse en Vercel: el backend PHP (referencia para hosting con PHP), el código fuente de la app y las pruebas.
+**/*.php
+api/data
+api/tests
+api/cron
+api/src
+api/config.example.php
+api/README.md
+app
+server/tests
+indexOK.html
+indexOKLAST.html
+indexLastlast.html
+indexVF.html
+index2.html
+orb-test.html
