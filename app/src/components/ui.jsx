@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { initials, isVideoUrl, projectColor, splitMedia, thumbOf } from '../lib/data.js'
+import { useApp } from '../store.jsx'
 
 // ── Iconos ────────────────────────────────────────────────────────────────
 const P = {
@@ -97,12 +98,15 @@ export function ChannelTile({ canal, size = 24, onMedia }) {
 }
 
 // ── Estados ───────────────────────────────────────────────────────────────
-const PUB_TONE = { publicado: 'green', programado: 'blue', borrador: '', cancelado: 'red', 'en edición': 'amber', aprobado: 'green' }
+const PUB_TONE = { publicado: '', programado: 'green', borrador: 'no-dot', cancelado: 'red', 'en edición': 'amber', aprobado: 'green' }
 const REQ_TONE = { pendiente: 'amber', 'en revisión': 'blue', aprobado: 'green', rechazado: 'red' }
+const STATE_DOT = { publicado: '#8b918d', programado: '#18a879', borrador: '#c3c8c4', cancelado: '#c23a3a', 'en edición': '#d18a1f', aprobado: '#18a879' }
+export const stateDot = (estado) => STATE_DOT[(estado || '').toLowerCase().trim()] || '#c3c8c4'
 
-export function StatusBadge({ estado, kind = 'pub' }) {
+export function StatusBadge({ estado, kind = 'pub', glass }) {
   if (!estado) return null
   const k = estado.toLowerCase().trim()
+  if (glass) return <span className="badge glass" style={{ '--dot': stateDot(estado) }}>{estado}</span>
   const tone = (kind === 'req' ? REQ_TONE : PUB_TONE)[k] ?? ''
   return <span className={`badge ${tone}`}>{estado}</span>
 }
@@ -113,13 +117,13 @@ export const PriorityLabel = ({ prioridad }) => (
 )
 
 // ── Miniaturas ────────────────────────────────────────────────────────────
-export function Thumb({ media, tipo, size = '', style }) {
+export function Thumb({ media, tipo, size = '', style, project }) {
   const [broken, setBroken] = useState(false)
   const src = thumbOf(media)
   useEffect(() => setBroken(false), [media])
   return (
-    <div className={`thumb ${size}`} style={style}>
-      {src && !broken ? <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} /> : <Icon name={tipoIcon[tipo] || 'image'} size={size === 'lg' ? 22 : 16} />}
+    <div className={`thumb ${size}`} style={project && !(src && !broken) ? { background: projectColor(project).bg, color: projectColor(project).dot, ...style } : style}>
+      {src && !broken ? <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} /> : <Icon name={tipoIcon[tipo] || 'image'} size={size === 'lg' ? 22 : size === 'sm' ? 13 : 16} />}
     </div>
   )
 }
@@ -180,11 +184,11 @@ export function ProjectFilter({ projects, value, onChange }) {
   const toggle = (p) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p])
   const label = value.length === 0 ? 'Todos los proyectos' : value.length === 1 ? value[0] : `${value.length} proyectos`
   return (
-    <div className="popover-wrap" ref={ref}>
+    <div className="menu-wrap" ref={ref}>
       <button className="select filters-select" style={{ textAlign: 'left', minWidth: 190 }} onClick={() => setOpen((o) => !o)}>{label}</button>
       {open && (
         <div className="popover">
-          {value.length > 0 && <button className="pop-item" style={{ color: 'var(--green-600)', fontWeight: 600 }} onClick={() => onChange([])}><Icon name="x" size={13} /> Quitar filtros</button>}
+          {value.length > 0 && <button className="pop-item" style={{ color: 'var(--accent-600)', fontWeight: 600 }} onClick={() => onChange([])}><Icon name="x" size={13} /> Quitar filtros</button>}
           {projects.map((p) => {
             const c = projectColor(p)
             return (
@@ -216,5 +220,46 @@ export function PageHead({ title, subtitle, children }) {
       <div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>
       <div className="page-actions">{children}</div>
     </div>
+  )
+}
+
+// ── Kpis (una sola superficie, sin tarjetas sueltas) ──────────────────────
+export function Kpis({ items }) {
+  return (
+    <div className="panel kpis">
+      {items.map((k) => {
+        const inner = <><b>{k.value}</b><span>{k.label}</span></>
+        return k.onClick
+          ? <button key={k.label} className={`kpi ${k.active ? 'on' : ''}`} onClick={k.onClick}>{inner}</button>
+          : <div key={k.label} className="kpi">{inner}</div>
+      })}
+    </div>
+  )
+}
+
+// ── Menú contextual ───────────────────────────────────────────────────────
+export function Menu({ items, label = 'Más acciones' }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useOutside(ref, () => setOpen(false))
+  return (
+    <div className="menu-wrap" ref={ref} onClick={(e) => e.stopPropagation()}>
+      <button className="icon-btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}><Icon name="more" size={16} /></button>
+      {open && (
+        <div className="popover right" role="menu" style={{ minWidth: 190 }}>
+          {items.filter(Boolean).map((it) => it.href
+            ? <a key={it.label} className="pop-item" role="menuitem" href={it.href} target="_blank" rel="noreferrer"><Icon name={it.icon} size={15} />{it.label}</a>
+            : <button key={it.label} className="pop-item" role="menuitem" onClick={() => { setOpen(false); it.onClick() }}><Icon name={it.icon} size={15} />{it.label}</button>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function DemoBanner() {
+  const app = useApp()
+  if (!app.demo) return null
+  return (
+    <div className="banner demo"><Icon name="flame" size={15} /><span className="grow"><b>Modo demo</b> · datos de ejemplo, no se guarda nada en la hoja.</span><button onClick={app.exitDemo}>Salir</button></div>
   )
 }

@@ -5,7 +5,10 @@ import PublicationDetail from './components/PublicationDetail.jsx'
 import Editor from './components/Editor.jsx'
 import Requests from './components/Requests.jsx'
 import { AuthModal, RequestDelete, RequestEdit, RequestForm } from './components/Modals.jsx'
-import { Library, Projects, Settings, Stats } from './components/Workspace.jsx'
+import Projects from './components/Projects.jsx'
+import Library from './components/Library.jsx'
+import Stats from './components/Stats.jsx'
+import Settings from './components/Settings.jsx'
 import { Icon } from './components/ui.jsx'
 
 function Toasts() {
@@ -20,18 +23,12 @@ function Toasts() {
 function Screen() {
   const app = useApp()
   if (app.selectedPub) return <PublicationDetail key={app.selectedPub.id} />
-  const withBanner = (el) => (
-    <>
-      {app.demo && <div className="banner demo"><Icon name="flame" size={15} /><span className="grow"><b>Modo demo</b> · datos de ejemplo.</span><button onClick={app.exitDemo}>Salir</button></div>}
-      {el}
-    </>
-  )
   switch (app.view) {
     case 'requests': return <Requests />
-    case 'projects': return withBanner(<Projects />)
-    case 'library': return withBanner(<Library />)
-    case 'stats': return withBanner(<Stats />)
-    case 'settings': return withBanner(<Settings />)
+    case 'projects': return <Projects />
+    case 'library': return <Library />
+    case 'stats': return <Stats />
+    case 'settings': return <Settings />
     default: return <PubViews />
   }
 }

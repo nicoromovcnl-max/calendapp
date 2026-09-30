@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import {
-  CHANNELS, INSTAGRAM_HANDLES, PUB_ESTADOS, TIPOS, projectColor, readAsDataUrl, scriptUploadFile, splitMedia, thumbOf, toInputDate,
+  CHANNELS, INSTAGRAM_HANDLES, PUB_ESTADOS, TIPOS, readAsDataUrl, scriptUploadFile, splitMedia, thumbOf, toInputDate,
 } from '../lib/data.js'
 import { ChannelTile, Cover, Icon, Modal, ProjectAvatar, tipoIcon } from './ui.jsx'
 
@@ -73,14 +73,15 @@ export function MediaField({ value, onChange, scriptUrl }) {
 
 // ── Previsualización ──────────────────────────────────────────────────────
 export function PostPreview({ form }) {
+  const app = useApp()
   const canal = (form.canal || 'Instagram').toLowerCase()
-  const handle = INSTAGRAM_HANDLES[form.proyecto] || (form.proyecto || 'tu_proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '')
+  const handle = app.accountOf(form.proyecto)?.handle || INSTAGRAM_HANDLES[form.proyecto] || (form.proyecto || 'tu_proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '')
   const first = splitMedia(form.media)[0]
   const n = splitMedia(form.media).length
   const copy = form.copy || ''
   const placeholder = <span className="muted" style={{ fontStyle: 'italic' }}>El contenido aparecerá aquí…</span>
   const media = (cls) => (
-    <div className={`p-media ${cls}`}><Cover media={first} tipo={form.tipo} iconSize={36} />{n > 1 && <span className="feed-count">1/{n}</span>}</div>
+    <div className={`p-media ${cls}`}><Cover media={first} tipo={form.tipo} iconSize={36} />{n > 1 && <span className="mc-count" style={{ position: 'absolute', top: 10, right: 10 }}>1/{n}</span>}</div>
   )
   const head = (sub) => (
     <div className="p-head"><ProjectAvatar name={form.proyecto || '?'} size={34} /><div><b>{canal === 'instagram' || canal === 'tiktok' ? handle : form.proyecto || 'Proyecto'}</b><small>{sub}</small></div><span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}><Icon name="more" size={16} /></span></div>
@@ -128,7 +129,7 @@ export default function Editor() {
   const pub = app.editing === 'new' ? null : app.editing
   const isNew = !pub
   const [form, setForm] = useState(() => isNew
-    ? { ...EMPTY, proyecto: app.projectsFilter.length === 1 ? app.projectsFilter[0] : '', fecha: toInputDate(new Date()) }
+    ? { ...EMPTY, proyecto: app.projectsFilter.length === 1 ? app.projectsFilter[0] : '', fecha: toInputDate(app.newPubDate || new Date()) }
     : {
       proyecto: pub.proyecto || '', fecha: toInputDate(pub.fecha), titulo: pub.titulo || '', copy: pub.copy || '', media: pub.media || '',
       tipo: pub.tipo || 'imagen', canal: pub.canal || '', estado: pub.estado || '', url_post: pub.url_post || '',
@@ -137,9 +138,8 @@ export default function Editor() {
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const setMedia = useCallback((v) => setForm((f) => ({ ...f, media: v })), [])
-  const close = () => app.setEditing(null)
+  const close = () => { app.setEditing(null); app.setNewPubDate(null) }
   const valid = form.proyecto && form.fecha && form.titulo.trim()
-  const c = projectColor(form.proyecto)
   const canalList = [...new Set([...CHANNELS.filter((x) => x !== 'Otros'), ...(form.canal && !CHANNELS.includes(form.canal) ? [form.canal] : [])])]
 
   const save = async (estado) => {
@@ -151,15 +151,17 @@ export default function Editor() {
     setSaving(false)
   }
 
+  const acc = app.accountOf(form.proyecto)
+
   return (
     <Modal onClose={close}>
       <div className="dialog-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={close} aria-label="Cerrar"><Icon name="x" size={16} /></button>
-          <div><h2>{isNew ? 'Nueva publicación' : 'Editar publicación'}</h2><small>{isNew ? 'Se añadirá a la hoja PUBLICACIONES' : 'Los cambios se guardan en la hoja'}</small></div>
+          <button className="icon-btn" onClick={close} aria-label="Cerrar"><Icon name="x" size={16} /></button>
+          <div><h2>{isNew ? 'Nueva publicación' : 'Editar publicación'}</h2><small>{isNew ? 'Se añadirá a la hoja de publicaciones' : 'Los cambios se guardan en la hoja'}</small></div>
         </div>
         <div className="page-actions">
-          <button className="btn" onClick={close}>Cancelar</button>
+          <button className="btn btn-ghost" onClick={close}>Cancelar</button>
           {isNew ? (
             <>
               <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>Guardar borrador</button>
@@ -171,21 +173,22 @@ export default function Editor() {
 
       <div className="dialog-body">
         <div className="editor-grid">
-          <div className="editor-col">
-            <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div className="form-card">
+            <div className="form-section">
               <div className="field">
                 <span className="label">Canal</span>
                 <div className="channel-tabs">
                   {canalList.map((ch) => (
-                    <button type="button" key={ch} className={`channel-tab ${form.canal === ch ? 'on' : ''}`} onClick={() => set('canal', form.canal === ch ? '' : ch)}>
+                    <button type="button" key={ch} className={`channel-tab ${form.canal === ch ? 'on' : ''}`} aria-pressed={form.canal === ch} onClick={() => set('canal', form.canal === ch ? '' : ch)}>
                       <ChannelTile canal={ch} size={20} />{ch}
                     </button>
                   ))}
                 </div>
               </div>
+            </div>
 
+            <div className="form-section">
               <div className="field"><label htmlFor="e-titulo">Título *</label><input id="e-titulo" className="input" value={form.titulo} onChange={(e) => set('titulo', e.target.value)} placeholder="Nombre interno de la publicación" /></div>
-
               <div className="field">
                 <label htmlFor="e-copy">Contenido</label>
                 <div className="copy-wrap">
@@ -193,40 +196,37 @@ export default function Editor() {
                   <div className="copy-foot"><span>Puedes usar #hashtags y emojis</span><span>{form.copy.length} caracteres</span></div>
                 </div>
               </div>
-
               <div className="field">
                 <span className="label">Tipo de contenido</span>
-                <div className="chip-group">{TIPOS.map((t) => <button type="button" key={t} className={`chip ${form.tipo === t ? 'on' : ''}`} onClick={() => set('tipo', t)} style={{ textTransform: 'capitalize' }}><Icon name={tipoIcon[t]} size={13} />{t}</button>)}</div>
+                <div className="chip-group">{TIPOS.map((t) => <button type="button" key={t} className={`chip ${form.tipo === t ? 'on' : ''}`} aria-pressed={form.tipo === t} onClick={() => set('tipo', t)} style={{ textTransform: 'capitalize' }}><Icon name={tipoIcon[t]} size={13} />{t}</button>)}</div>
               </div>
             </div>
 
-            <div className="card card-pad">
-              <div className="label" style={{ marginBottom: 10 }}>Archivo multimedia</div>
+            <div className="form-section">
+              <span className="label">Archivo multimedia</span>
               <MediaField value={form.media} onChange={setMedia} scriptUrl={app.config.requestsScriptUrl} />
             </div>
 
-            <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div className="field">
-                <label htmlFor="e-proyecto">Proyecto *</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: form.proyecto ? c.dot : 'var(--line-strong)', flex: '0 0 auto' }} />
+            <div className="form-section">
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="e-proyecto">Proyecto *</label>
                   <select id="e-proyecto" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
                     <option value="">Selecciona…</option>
                     {[...new Set([...app.projectNames, form.proyecto].filter(Boolean))].sort().map((p) => <option key={p}>{p}</option>)}
                   </select>
                 </div>
+                <div className="field"><label htmlFor="e-fecha">Fecha *</label><input id="e-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
               </div>
               <div className="field-row">
-                <div className="field"><label htmlFor="e-fecha">Fecha *</label><input id="e-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
-                <div className="field"><label htmlFor="e-estado">Estado / programación</label>
+                <div className="field"><label htmlFor="e-estado">Estado</label>
                   <select id="e-estado" className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>
-                    <option value="">Sin estado</option>
-                    {PUB_ESTADOS.map((s) => <option key={s}>{s}</option>)}
+                    <option value="">Sin estado</option>{PUB_ESTADOS.map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </div>
+                {!isNew && <div className="field"><label htmlFor="e-url">URL de la publicación</label><input id="e-url" className="input" value={form.url_post} onChange={(e) => set('url_post', e.target.value)} placeholder="https://…" /></div>}
               </div>
-              {!isNew && <div className="field"><label htmlFor="e-url">URL de la publicación</label><input id="e-url" className="input" value={form.url_post} onChange={(e) => set('url_post', e.target.value)} placeholder="https://…" /></div>}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button type="button" className={`switch ${form.promocionado ? 'on' : ''}`} onClick={() => set('promocionado', !form.promocionado)} role="switch" aria-checked={form.promocionado} aria-label="Campaña de Ads" />
                 <div style={{ flex: 1 }}><b>Campaña de Ads</b><div className="muted" style={{ fontSize: 12 }}>La publicación se promociona con presupuesto</div></div>
                 {form.promocionado && <input className="input" style={{ width: 120 }} placeholder="Presupuesto €" inputMode="decimal" value={form.presupuesto} onChange={(e) => set('presupuesto', e.target.value)} />}
@@ -234,8 +234,11 @@ export default function Editor() {
             </div>
           </div>
 
-          <div className="preview-card">
-            <div className="preview-label">Vista previa</div>
+          <div className="preview-stage">
+            <div className="preview-head">
+              <b>Vista previa</b>
+              <span className="who">{form.canal && <ChannelTile canal={form.canal} size={18} />}{form.canal || 'Sin canal'}{acc && ` · @${acc.handle}`}</span>
+            </div>
             <PostPreview form={form} />
           </div>
         </div>

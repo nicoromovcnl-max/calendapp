@@ -249,6 +249,7 @@ function toPublication(r, i) {
     tipo: (r.tipo || r.type || '').toLowerCase().trim(),
     canal: r.canal || r.channel || '',
     estado: r.estado || r.status || '',
+    hora: (r.hora || r.time || '').trim(),
     promocionado: (r.promocionado || 'No').trim(),
     presupuesto: r.presupuesto || '',
   }

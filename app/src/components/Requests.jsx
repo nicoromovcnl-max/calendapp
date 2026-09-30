@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { PRIORIDADES, REQ_ESTADOS, fmtFull, fmtShort, isPendingRequest, splitMedia } from '../lib/data.js'
-import { ChannelTile, Empty, Icon, Modal, PageHead, PriorityLabel, ProjectPill, StatusBadge, Thumb, tipoIcon } from './ui.jsx'
+import { ChannelTile, DemoBanner, Empty, Icon, Kpis, Modal, PageHead, PriorityLabel, ProjectPill, StatusBadge, Thumb, tipoIcon } from './ui.jsx'
 
-function useNarrow(q = '(max-width: 960px)') {
+function useNarrow(q = '(max-width: 820px)') {
   const [m, setM] = useState(() => window.matchMedia(q).matches)
   useEffect(() => {
     const mq = window.matchMedia(q)
@@ -31,7 +31,7 @@ function RequestPanel({ req, onClose, inModal }) {
   }
 
   return (
-    <div className={inModal ? '' : 'card side-panel'}>
+    <div className={inModal ? '' : 'panel side-panel'}>
       <div className="panel-head">
         <div style={{ minWidth: 0 }}>
           <div style={{ marginBottom: 8 }}><ProjectPill name={req.proyecto} /></div>
@@ -70,12 +70,12 @@ function RequestPanel({ req, onClose, inModal }) {
         {approved ? (
           <>
             <div className="banner demo" style={{ margin: 0 }}><Icon name="check" size={15} /><span className="grow">Esta petición ya es una publicación del calendario.</span></div>
-            <button className="btn btn-primary" onClick={goCalendar}><Icon name="calendar" size={15} /> Ver en el calendario</button>
+            <button className="btn btn-primary btn-block" onClick={goCalendar}><Icon name="calendar" size={15} /> Ver en el calendario</button>
           </>
         ) : rejected ? (
           <div className="muted" style={{ fontSize: 13 }}>Petición rechazada. Puedes editarla para cambiar su estado.</div>
         ) : (
-          <button className="btn btn-primary" onClick={createPublication}>
+          <button className="btn btn-accent btn-block" style={{ height: 40 }} onClick={createPublication}>
             <Icon name={app.isAuth ? 'plus' : 'lock'} size={15} /> Crear publicación
           </button>
         )}
@@ -103,41 +103,35 @@ export default function Requests() {
 
   const count = (fn) => requests.filter(fn).length
   const tiles = [
-    ['Pendientes', count((r) => (r.estado || 'Pendiente') === 'Pendiente'), 'Pendiente'],
-    ['En revisión', count((r) => r.estado === 'En revisión'), 'En revisión'],
-    ['Aprobadas', count((r) => r.estado === 'Aprobado'), 'Aprobado'],
-    ['Rechazadas', count((r) => r.estado === 'Rechazado'), 'Rechazado'],
+    ['Pendientes', 'Pendiente', count((r) => (r.estado || 'Pendiente') === 'Pendiente')],
+    ['En revisión', 'En revisión', count((r) => r.estado === 'En revisión')],
+    ['Aprobadas', 'Aprobado', count((r) => r.estado === 'Aprobado')],
+    ['Rechazadas', 'Rechazado', count((r) => r.estado === 'Rechazado')],
   ]
 
   const projects = useMemo(() => [...new Set(requests.map((r) => r.proyecto))].sort(), [requests])
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase()
     return [...requests]
-      .filter((r) => (!proyecto || r.proyecto === proyecto)
+      .filter((r) => app.matchesAccount(r.proyecto) && (!proyecto || r.proyecto === proyecto)
         && (!estado || (estado === 'pending' ? isPendingRequest(r) : (r.estado || 'Pendiente') === estado))
         && (!prioridad || r.prioridad === prioridad)
         && (!t || [r.titulo, r.info, r.solicitante, r.proyecto].some((f) => f && f.toLowerCase().includes(t))))
       .sort((a, b) => (b.fecha || 0) - (a.fecha || 0))
-  }, [requests, q, proyecto, estado, prioridad])
+  }, [requests, q, proyecto, estado, prioridad, app.matchesAccount])
 
   const selected = requests.find((r) => r.id === selectedId) || null
   useEffect(() => { if (selectedId && !selected) setSelectedId(null) }, [selectedId, selected])
 
   return (
-    <>
-      <PageHead title="Peticiones" subtitle="Gestión de solicitudes de contenido con estados, prioridad y detalle.">
+    <div className="view-enter">
+      <PageHead title="Peticiones" subtitle="Solicitudes de contenido de todos tus proyectos, con estado, prioridad y detalle.">
         <button className="btn btn-icon" onClick={app.loadRequests} title="Actualizar" aria-label="Actualizar"><Icon name="refresh" size={15} className={app.requestsLoading ? 'spin' : ''} /></button>
         <button className="btn btn-primary" onClick={() => app.setRequestForm(true)}><Icon name="plus" size={15} /> Nueva petición</button>
       </PageHead>
-      {app.demo && <div className="banner demo"><Icon name="flame" size={15} /><span className="grow"><b>Modo demo</b> · datos de ejemplo.</span><button onClick={app.exitDemo}>Salir</button></div>}
+      <DemoBanner />
 
-      <div className="stats-row">
-        {tiles.map(([label, n, key]) => (
-          <button key={label} className="card stat-tile" style={{ textAlign: 'left', cursor: 'pointer', outline: estado === key ? '2px solid var(--green)' : 'none' }} onClick={() => setEstado(estado === key ? '' : key)}>
-            <b>{n}</b><span>{label}</span>
-          </button>
-        ))}
-      </div>
+      <Kpis items={tiles.map(([label, key, value]) => ({ label, value, active: estado === key, onClick: () => setEstado(estado === key ? '' : key) }))} />
 
       <div className="toolbar">
         <div className="search"><Icon name="search" size={15} /><input className="input" placeholder="Buscar peticiones…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -149,7 +143,7 @@ export default function Requests() {
       </div>
 
       <div className={`split ${selected && !narrow ? 'with-panel' : ''}`}>
-        <div className="card">
+        <div className="panel">
           {rows.length === 0 ? (
             <Empty icon="inbox" title={requests.length === 0 ? 'Aún no hay peticiones' : 'Sin resultados'}>
               {requests.length === 0 ? 'Cuando alguien solicite contenido, aparecerá aquí.' : 'Prueba a cambiar los filtros.'}
@@ -157,13 +151,13 @@ export default function Requests() {
           ) : (
             <div className="table-wrap">
               <table className={`table ${selected && !narrow ? 'compact' : ''}`}>
-                <thead><tr><th>Solicitud</th><th className="hide-sm hide-compact">Proyecto</th><th>Prioridad</th><th>Estado</th><th className="hide-sm hide-compact">Fecha</th></tr></thead>
+                <thead><tr><th>Solicitud</th><th className="hide-sm hide-compact">Proyecto</th><th className="col-prio">Prioridad</th><th className="col-state">Estado</th><th className="hide-sm hide-compact">Fecha</th></tr></thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id} className={selectedId === r.id ? 'selected' : ''} onClick={() => setSelectedId(r.id)}>
-                      <td><div className="cell-main"><Thumb media={splitMedia(r.contenido)[0]} tipo={r.tipo} /><div style={{ minWidth: 0 }}><b className="trunc" style={{ maxWidth: 300 }}>{r.titulo}</b><small>{selected && !narrow ? `${r.proyecto} · ` : ''}{r.solicitante ? `por ${r.solicitante}` : r.tipo}</small></div></div></td>
+                      <td><div className="cell-main"><Thumb media={splitMedia(r.contenido)[0]} tipo={r.tipo} /><div style={{ minWidth: 0 }}><b className="trunc">{r.titulo}</b><small>{selected && !narrow ? `${r.proyecto} · ` : ''}{r.solicitante ? `por ${r.solicitante}` : r.tipo}</small><small className="cell-sub-mobile">{r.prioridad || 'Media'} · {fmtShort(r.fecha)}</small></div></div></td>
                       <td className="hide-sm hide-compact">{r.proyecto}</td>
-                      <td><PriorityLabel prioridad={r.prioridad} /></td>
+                      <td className="col-prio"><PriorityLabel prioridad={r.prioridad} /></td>
                       <td><StatusBadge estado={r.estado || 'Pendiente'} kind="req" /></td>
                       <td className="hide-sm hide-compact" style={{ whiteSpace: 'nowrap' }}>{fmtShort(r.fecha)}</td>
                     </tr>
@@ -176,6 +170,6 @@ export default function Requests() {
         {selected && !narrow && <RequestPanel req={selected} onClose={() => setSelectedId(null)} />}
       </div>
       {selected && narrow && <Modal onClose={() => setSelectedId(null)} size="narrow"><RequestPanel req={selected} onClose={() => setSelectedId(null)} inModal /></Modal>}
-    </>
+    </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   scriptUpdatePublication, scriptUpdateRequest,
 } from './lib/data.js'
 import { demoPublications, demoRequests } from './lib/demo.js'
+import { accountForProject, buildAccounts, loadActiveAccount, loadCustomHandles, normalizeHandle, saveActiveAccount, saveCustomHandles } from './lib/accounts.js'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -41,6 +42,8 @@ export function AppProvider({ children }) {
   const [canalFilter, setCanalFilter] = useState('')
   const [estadoFilter, setEstadoFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [customHandles, setCustomHandles] = useState(loadCustomHandles)
+  const [activeAccount, setActiveAccountState] = useState(loadActiveAccount)
 
   const [pubs, setPubs] = useState([])
   const [overrides, setOverrides] = useState(new Map())
@@ -52,6 +55,7 @@ export function AppProvider({ children }) {
   const [requestsLoading, setRequestsLoading] = useState(false)
 
   const [selectedPub, setSelectedPub] = useState(null)
+  const [newPubDate, setNewPubDate] = useState(null)
   const [editing, setEditing] = useState(null) // null | 'new' | publicación
   const [showAuth, setShowAuth] = useState(false)
   const [requestForm, setRequestForm] = useState(false)
@@ -139,6 +143,22 @@ export function AppProvider({ children }) {
     return [...map.values(), ...extra]
   }, [demo, pubs, overrides])
 
+  const accounts = useMemo(() => buildAccounts(customHandles), [customHandles])
+  const setActiveAccount = useCallback((id) => { setActiveAccountState(id); saveActiveAccount(id) }, [])
+  const addAccount = useCallback((raw) => {
+    const h = normalizeHandle(raw)
+    if (!h) return false
+    if (!buildAccounts(customHandles).some((a) => a.id === h)) {
+      const next = [...customHandles, h]
+      setCustomHandles(next); saveCustomHandles(next)
+    }
+    setActiveAccount(h)
+    return true
+  }, [customHandles, setActiveAccount])
+  const account = useMemo(() => accounts.find((a) => a.id === activeAccount) || null, [accounts, activeAccount])
+  const accountOf = useCallback((project) => accountForProject(accounts, project), [accounts])
+  const matchesAccount = useCallback((project) => !account || accountForProject([account], project)?.id === account.id, [account])
+
   const sortedPublications = useMemo(
     () => [...publications].sort((a, b) => (a.fecha || 0) - (b.fecha || 0)),
     [publications],
@@ -154,6 +174,7 @@ export function AppProvider({ children }) {
     const q = search.trim().toLowerCase()
     return sortedPublications.filter((p) => {
       if (projectsFilter.length && !projectsFilter.includes(p.proyecto)) return false
+      if (!matchesAccount(p.proyecto)) return false
       if (canalFilter && (p.canal || '').toLowerCase() !== canalFilter.toLowerCase()) return false
       if (estadoFilter && (p.estado || '') !== estadoFilter) return false
       if (q.length >= 2) {
@@ -161,7 +182,7 @@ export function AppProvider({ children }) {
       }
       return true
     })
-  }, [sortedPublications, projectsFilter, canalFilter, estadoFilter, search])
+  }, [sortedPublications, projectsFilter, canalFilter, estadoFilter, search, matchesAccount])
 
   const savePublication = useCallback(async (pub) => {
     setOverride(pub.id, pub)
@@ -312,6 +333,7 @@ export function AppProvider({ children }) {
     loadPublications, savePublication, requests, requestsLoading, pendingCount, loadRequests, changeRequestState,
     saveRequest, deleteRequest, submitRequest, createPublication, selectedPub, setSelectedPub, editing, setEditing, showAuth, setShowAuth,
     requestForm, setRequestForm, requestEdit, setRequestEdit, requestDelete, setRequestDelete, toasts, toast,
+    accounts, account, activeAccount, setActiveAccount, addAccount, accountOf, matchesAccount, newPubDate, setNewPubDate,
     login, logout, requireAuth, userName, enterDemo, exitDemo, sidebarCollapsed, setSidebarCollapsed, setRequests,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
