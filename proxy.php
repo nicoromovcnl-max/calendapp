@@ -21,7 +21,7 @@ if ($thumb) {
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS      => 5,
         CURLOPT_TIMEOUT        => 15,
-        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_COOKIEJAR      => $cookieFile,
         CURLOPT_COOKIEFILE     => $cookieFile,
         CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
@@ -36,7 +36,7 @@ if ($thumb) {
     // Si es imagen válida (no HTML)
     if (strlen($body) > 500 && stripos($body, '<!DOCTYPE') === false) {
         header('Content-Type: image/jpeg');
-        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Origin: https://elchandriogroup.com');
         header('Cache-Control: public, max-age=86400');
         echo $body;
         exit;
@@ -55,7 +55,7 @@ function curlGet($url, $cookieFile) {
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS      => 10,
         CURLOPT_TIMEOUT        => 60,
-        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_COOKIEJAR      => $cookieFile,
         CURLOPT_COOKIEFILE     => $cookieFile,
         CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
@@ -108,8 +108,7 @@ foreach (explode("\n", $result['headers']) as $h) {
 }
 
 header('Content-Type: ' . $contentType);
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: https://elchandriogroup.com');
 header('Cache-Control: public, max-age=3600');
 header('Content-Length: ' . strlen($result['body']));
-header('Accept-Ranges: bytes');
 echo $result['body'];
