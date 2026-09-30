@@ -4,6 +4,7 @@ import { fmtLong, fmtShort, hashtagsOf, initials, projectColor, splitMedia } fro
 import { prettyProject } from '../lib/projects.js'
 import { ChannelTile, Cover, DemoBanner, Icon, Modal, PageHead, StatusBadge, stateDot, tipoIcon, useOutside } from './ui.jsx'
 import { aggregateStatus, destLabel } from '../lib/destinations.js'
+import { CreateMenu } from './Sidebar.jsx'
 
 const TABS = [['posts', 'Posts', 'grid'], ['reels', 'Reels', 'video'], ['stories', 'Stories', 'story']]
 const isStory = (p) => (p.tipo || '').toLowerCase() === 'historia'
@@ -174,7 +175,7 @@ export default function VisualFeed() {
 
   return (
     <div className="view-enter">
-      <PageHead title="Visual Feed" subtitle="Previsualiza cómo queda el contenido de cada proyecto." />
+      <PageHead title="Visual Feed" subtitle="Previsualiza cómo queda el contenido de cada proyecto."><CreateMenu /></PageHead>
       <DemoBanner />
 
       <div className="feed-controls">

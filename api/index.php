@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/src/autoload.php';
 
-use CalendApp\{Auth, Config, Db, Http, Instagram, Media, MetaException, Publisher, Repo};
+use CalendApp\{Auth, Config, Db, Http, Instagram, Media, MetaException, Platforms, Publisher, Repo};
 
 const VERSION = '1.0.0';
 header('X-Content-Type-Options: nosniff');
@@ -27,7 +27,8 @@ if ($route === 'bootstrap' && $method === 'GET') {
     $authed = Auth::check();
     Http::json([
         'ok' => true, 'backend' => true, 'version' => VERSION, 'configured' => Config::flags(), 'authenticated' => $authed,
-        'projects' => Repo::projects(), 'accounts' => Repo::accounts(), 'destinations' => $authed ? Repo::channels() : [],
+        'projects' => Repo::projects(), 'platforms' => Platforms::all(), 'accounts' => Repo::accounts(),
+        'destinations' => $authed ? Repo::channels() : [], 'events' => $authed ? Repo::events() : [],
     ]);
 }
 
@@ -80,7 +81,7 @@ switch ($route) {
         }
         $state = bin2hex(random_bytes(20));
         Repo::saveState($state, $project, Auth::sessionHash());
-        Http::json(['ok' => true, 'url' => Instagram::authorizeUrl($state)]);
+        Http::json(['ok' => true, 'url' => Instagram::authorizeUrl($state, !empty($in['force_reauth']))]);
     }
 
     case 'accounts/add': {
@@ -197,7 +198,8 @@ switch ($route) {
                 }
                 $when = gmdate('Y-m-d\TH:i:s\Z', $ts);
             }
-            $dests[] = ['social_account_id' => (int) $acc['id'], 'status' => $status, 'scheduled_at' => $when];
+            $tz = isset($d['timezone']) && in_array((string) $d['timezone'], \DateTimeZone::listIdentifiers(), true) ? (string) $d['timezone'] : null;
+            $dests[] = ['social_account_id' => (int) $acc['id'], 'status' => $status, 'scheduled_at' => $when, 'timezone' => $tz];
         }
         $pdo = Db::pdo();
         $pdo->beginTransaction();
@@ -227,6 +229,15 @@ switch ($route) {
             Http::error('invalid', 'Este destino ya no se puede cancelar.', 409);
         }
         Repo::updateChannel((int) $ch['id'], ['status' => 'cancelled', 'error_message' => null]);
+        Repo::logEvent((int) $ch['id'], 'cancelled', 'Cancelado');
+        Http::json(['ok' => true]);
+    }
+
+    case 'publications/delete': {
+        $ref = need($in, 'ref');
+        if (!Repo::deletePublication($ref)) {
+            Http::error('published', 'Esta publicación ya está publicada. Meta no permite borrarla desde la API: elimínala desde Instagram.', 409);
+        }
         Http::json(['ok' => true]);
     }
 

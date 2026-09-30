@@ -23,12 +23,13 @@ final class Instagram
         return $json;
     }
 
-    public static function authorizeUrl(string $state): string
+    // force_reauth (documentado por Meta) obliga a volver a iniciar sesión, útil para elegir otra cuenta.
+    public static function authorizeUrl(string $state, bool $forceReauth = false): string
     {
         return Config::oauthAuthorize() . '?' . http_build_query([
             'client_id' => Config::get('META_APP_ID'), 'redirect_uri' => Config::get('META_REDIRECT_URI'),
             'response_type' => 'code', 'scope' => self::SCOPES, 'state' => $state,
-        ]);
+        ] + ($forceReauth ? ['force_reauth' => 'true'] : []));
     }
 
     // Token de corta duración (1 h). La respuesta documentada es {"data":[{...}]}; se acepta también el formato plano.

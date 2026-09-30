@@ -78,12 +78,31 @@ CREATE TABLE IF NOT EXISTS publication_channels (
   UNIQUE (publication_id, social_account_id)
 );
 CREATE INDEX IF NOT EXISTS idx_channels_due ON publication_channels (status, scheduled_at);
+CREATE TABLE IF NOT EXISTS publication_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel_id INTEGER NOT NULL REFERENCES publication_channels(id) ON DELETE CASCADE,
+  at TEXT NOT NULL,
+  type TEXT NOT NULL,
+  message TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_events_channel ON publication_events (channel_id, at);
 CREATE TABLE IF NOT EXISTS oauth_states (
   state TEXT PRIMARY KEY, project_id TEXT, session_hash TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT NOT NULL, at INTEGER NOT NULL);
 SQL);
+        self::ensureColumn($pdo, 'publication_channels', 'timezone', 'TEXT');
         self::seed($pdo);
+    }
+
+    private static function ensureColumn(\PDO $pdo, string $table, string $column, string $type): void
+    {
+        foreach ($pdo->query("PRAGMA table_info($table)")->fetchAll() as $c) {
+            if ($c['name'] === $column) {
+                return;
+            }
+        }
+        $pdo->exec("ALTER TABLE $table ADD COLUMN $column $type");
     }
 
     // Proyectos y cuentas iniciales (sin credenciales). Se pueden editar después desde la API.

@@ -9,6 +9,7 @@ final class Publisher
     private static function fail(int $channelId, string $message, ?array $account = null, ?MetaException $e = null): array
     {
         Repo::updateChannel($channelId, ['status' => 'failed', 'error_message' => mb_substr($message, 0, 500), 'locked_at' => null]);
+        Repo::logEvent($channelId, 'failed', mb_substr($message, 0, 500));
         if ($account && $e && $e->isAuthError()) {
             Repo::updateAccount((int) $account['id'], ['status' => 'expired', 'last_error' => mb_substr($e->userMessage(), 0, 300)]);
         }
@@ -27,9 +28,13 @@ final class Publisher
         }
         $ch = Repo::channel($channelId);
         $account = Repo::account((int) $ch['social_account_id']);
+        Repo::logEvent($channelId, $resume ? 'resumed' : 'publishing', $resume ? 'Se retoma la publicación' : 'Publicando…');
         try {
-            if (!$account || $account['platform'] !== 'instagram') {
+            if (!$account) {
                 throw new \RuntimeException('La cuenta de destino no existe.');
+            }
+            if (!Platforms::implemented($account['platform'])) {
+                throw new \RuntimeException('El canal ' . Platforms::label($account['platform']) . ' todavía no está disponible en CalendApp.');
             }
             $public = Repo::accountPublic($account);
             if ($public['status'] !== 'connected' || empty($account['external_account_id'])) {
@@ -55,6 +60,7 @@ final class Publisher
                 'status' => 'published', 'published_at' => Db::now(), 'external_post_id' => $mediaId,
                 'external_url' => Instagram::permalink($mediaId, $token), 'error_message' => null, 'locked_at' => null,
             ]);
+            Repo::logEvent($channelId, 'published', 'Publicado en @' . $account['username']);
             return Repo::channelPublic(Repo::channel($channelId) ?? []);
         } catch (MetaException $e) {
             return self::fail($channelId, $e->userMessage(), $account, $e);

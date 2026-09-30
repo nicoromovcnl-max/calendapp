@@ -85,20 +85,24 @@ function AddAccount() {
   )
 }
 
-function InstagramGroup() {
+// ── Plataformas sociales (centro de conexiones) ───────────────────────────
+function InstagramGroup({ platform }) {
   const app = useApp()
   const { backend, busy } = app.social
-  const ready = app.demo ? false : backend.state === 'online' && backend.authenticated
-  const canConnect = ready && backend.configured?.meta_app && backend.configured?.redirect_uri && backend.configured?.crypto
-  const why = app.demo ? 'No disponible en modo demo.' : backend.state !== 'online' ? 'El servidor no está disponible.' : !backend.authenticated ? 'Inicia sesión en el servidor.' : !canConnect ? 'Falta configuración de Meta en el servidor.' : ''
+  const ready = app.demo ? true : backend.state === 'online' && backend.authenticated
+  const canConnect = app.demo || (ready && backend.configured?.meta_app && backend.configured?.redirect_uri && backend.configured?.crypto)
+  const why = backend.state !== 'online' && !app.demo ? 'El servidor no está disponible.' : !ready ? 'Inicia sesión en el servidor.' : !canConnect ? 'Falta configuración de Meta en el servidor.' : ''
+  const connected = app.accounts.filter((a) => a.status === 'connected' || a.status === 'demo')
   const check = async (a) => {
     try {
       const r = await app.social.checkAccount(a.id)
       app.toast.success(r.quota ? `@${a.handle}: ${r.quota.usage} de ${r.quota.total} publicaciones usadas en ${Math.round((r.quota.duration || 86400) / 3600)} h` : `@${a.handle}: cuenta verificada`)
     } catch { /* el error ya se muestra */ }
   }
+  const live = (a) => a.status === 'connected' || a.status === 'demo'
   return (
-    <Group title="Cuentas de Instagram" sub="Cada cuenta es una conexión independiente. CalendApp usa el inicio de sesión oficial de Instagram (cuentas profesionales: Business o Creator).">
+    <Group title="Instagram" sub="Conexión oficial con Meta (inicio de sesión de Instagram). Introduces tus credenciales en instagram.com, nunca en CalendApp.">
+      {app.demo && <div className="row-item"><div className="grow"><b>Modo demo</b><small>Conectar y desconectar son simulaciones. Fuera del demo se abre el inicio de sesión oficial de Instagram.</small></div><span className="badge blue">Simulado</span></div>}
       {app.accounts.map((a) => {
         const exp = a.tokenExpiresAt
         return (
@@ -108,20 +112,23 @@ function InstagramGroup() {
               <b>@{a.handle}</b>
               <small>{a.metadata?.account_type ? `${a.metadata.account_type} · ` : ''}{a.status === 'connected' && exp ? `Token válido hasta ${fmtFull(exp)}` : a.lastError || (a.status === 'demo' ? 'Cuenta de ejemplo' : 'Sin credenciales guardadas')}</small>
             </div>
-            <select className="select project-select" aria-label={`Proyecto de @${a.handle}`} value={a.projectId || ''} disabled={!ready || busy}
+            <select className="select project-select" aria-label={`Proyecto de @${a.handle}`} value={a.projectId || ''} disabled={!ready || busy || app.demo}
               onChange={(e) => app.social.setAccountProject(a.id, e.target.value)}>
               <option value="">Sin proyecto</option>{app.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-            <AccountStatusBadge status={a.status} />
+            {live(a)
+              ? <span className="conn-dot"><i />{a.status === 'demo' ? 'Conectado (demo)' : 'Conectado'}</span>
+              : <AccountStatusBadge status={a.status} />}
             {ready && (
               <div className="row-actions">
-                {a.status !== 'connected' && <button className="btn btn-sm btn-primary" disabled={!canConnect || busy} onClick={() => app.social.connectInstagram(a.projectId)}>{a.status === 'pending' || a.status === 'disconnected' ? 'Conectar' : 'Reconectar'}</button>}
+                {live(a) && <button className="btn btn-sm" disabled={busy} onClick={() => app.social.disconnectAccount(a.id).catch(() => {})}>Desconectar</button>}
+                {!live(a) && <button className="btn btn-sm btn-primary" disabled={!canConnect || busy} onClick={() => app.social.connectInstagram(a.projectId, { accountId: a.id })}>{a.status === 'pending' || a.status === 'disconnected' ? 'Conectar' : 'Reconectar'}</button>}
                 <Menu label={`Acciones de @${a.handle}`} items={[
-                  a.status === 'connected' && { label: 'Comprobar cuenta y cuota', icon: 'refresh', onClick: () => check(a) },
-                  a.status === 'connected' && { label: 'Renovar token', icon: 'lock', onClick: () => app.social.renewToken(a.id).catch(() => {}) },
-                  a.status !== 'pending' && a.status !== 'disconnected' && { label: 'Desconectar', icon: 'logout', onClick: () => app.social.disconnectAccount(a.id).catch(() => {}) },
+                  a.status === 'connected' && !app.demo && { label: 'Comprobar cuenta y cuota', icon: 'refresh', onClick: () => check(a) },
+                  a.status === 'connected' && !app.demo && { label: 'Renovar token', icon: 'lock', onClick: () => app.social.renewToken(a.id).catch(() => {}) },
+                  !app.demo && a.status !== 'pending' && a.status !== 'disconnected' && { label: 'Reconectar con otra cuenta', icon: 'users', onClick: () => app.social.connectInstagram(a.projectId, { forceReauth: true }) },
                   { label: 'Abrir perfil', icon: 'external', href: `https://www.instagram.com/${a.handle}/` },
-                  a.status !== 'connected' && { label: 'Eliminar cuenta', icon: 'trash', onClick: () => app.social.removeAccount(a.id).catch(() => {}) },
+                  !app.demo && a.status !== 'connected' && { label: 'Eliminar cuenta', icon: 'trash', onClick: () => app.social.removeAccount(a.id).catch(() => {}) },
                 ]} />
               </div>
             )}
@@ -129,11 +136,39 @@ function InstagramGroup() {
         )
       })}
       <div className="row-item">
-        <div className="grow"><b>Conectar cuenta de Instagram</b><small>{why || 'Se abrirá el inicio de sesión de Instagram para autorizar la cuenta.'}</small></div>
-        <button className="btn btn-primary" disabled={!canConnect || busy} onClick={() => app.social.connectInstagram(null)}><Icon name="plus" size={14} /> Conectar cuenta</button>
+        <div className="grow"><b>{connected.length ? 'Conectar otra cuenta' : 'Conectar Instagram'}</b><small>{why || 'Se abrirá el inicio de sesión de Instagram para autorizar una cuenta profesional.'}</small></div>
+        <button className="btn btn-primary" disabled={!canConnect || busy} onClick={() => app.social.connectInstagram(null, { forceReauth: connected.length > 0 })}><Icon name="plus" size={14} /> {connected.length ? 'Conectar otra cuenta' : 'Conectar Instagram'}</button>
       </div>
-      {ready && <AddAccount />}
+      {ready && !app.demo && <AddAccount />}
+      {platform?.requirements?.length > 0 && (
+        <details className="plain"><summary>Requisitos y límites de Meta <Icon name="down" size={15} className="muted" /></summary>
+          <ul className="req-list">{platform.requirements.map((r) => <li key={r}>{r}</li>)}</ul>
+        </details>
+      )}
     </Group>
+  )
+}
+
+const SOON_COLOR = { facebook: '#1877f2', tiktok: '#181A19', linkedin: '#0a66c2' }
+function ComingSoon({ platform }) {
+  return (
+    <Row icon={<div className="integration-icon" style={{ background: SOON_COLOR[platform.id] || 'var(--ink-3)' }}><ChannelTile canal={platform.label} size={22} /></div>} title={platform.label}
+      sub="Integración preparada en la arquitectura, todavía no disponible. No se simula ninguna conexión.">
+      <span className="badge no-dot">Próximamente</span>
+    </Row>
+  )
+}
+
+function SocialGroups() {
+  const app = useApp()
+  const list = app.social.platforms
+  const ig = list.find((p) => p.id === 'instagram') || { id: 'instagram', requirements: [] }
+  const soon = list.filter((p) => !p.implemented)
+  return (
+    <>
+      <InstagramGroup platform={ig} />
+      {soon.length > 0 && <Group title="Otras redes" sub="Cada red necesitará su propia autorización oficial. Aparecerán aquí cuando estén implementadas.">{soon.map((p) => <ComingSoon key={p.id} platform={p} />)}</Group>}
+    </>
   )
 }
 
@@ -203,7 +238,7 @@ export default function Settings() {
         {tab === 'integraciones' && (
           <>
             <ServerGroup />
-            <InstagramGroup />
+            <SocialGroups />
             <Group title="Datos" sub="La conexión con Google Sheets está fijada y no puede modificarse desde la app.">
               <Row icon={<div className="integration-icon" style={{ background: '#0f9d58' }}><Icon name="sheet" size={19} /></div>} title="Google Sheets · Publicaciones" sub={app.lastSynced ? `Sincronizado ${timeAgo(app.lastSynced)}` : 'Pendiente de sincronizar'}>
                 <a className="btn btn-sm" href={PUBLICATIONS_CSV} target="_blank" rel="noreferrer">Abrir</a>

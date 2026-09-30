@@ -35,6 +35,7 @@ export function AccountSwitcher({ up = false }) {
       </button>
       {open && (
         <div className={`popover ${up ? 'up' : ''}`} style={{ minWidth: 250, left: 0, right: 0 }} role="listbox">
+          <div className="pop-label">CUENTAS</div>
           <button className={`pop-item ${!acc ? 'on' : ''}`} role="option" aria-selected={!acc} onClick={() => { app.setActiveAccount(null); setOpen(false) }}>
             <Icon name="users" size={15} /> Todas las cuentas {!acc && <Icon name="check" size={14} style={{ marginLeft: 'auto' }} />}
           </button>
@@ -46,7 +47,33 @@ export function AccountSwitcher({ up = false }) {
             </button>
           ))}
           <div className="pop-sep" />
-          <button className="pop-item" onClick={() => { setOpen(false); app.goIntegrations() }}><Icon name="plus" size={15} /> Conectar otra cuenta</button>
+          <button className="pop-item" onClick={() => { setOpen(false); app.goIntegrations() }}><Icon name="plus" size={15} /> Conectar cuenta</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Menú global "+ Crear": publicación y petición son flujos independientes.
+export function CreateMenu({ block = false, up = false, label = 'Crear' }) {
+  const app = useApp()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useOutside(ref, () => setOpen(false))
+  const run = (fn) => { setOpen(false); fn() }
+  return (
+    <div className={`create-menu ${block ? 'block' : ''}`} ref={ref}>
+      <button className="btn btn-primary create-btn" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} title="Crear">
+        <Icon name="plus" size={15} /><span className="txt">{label}</span>
+      </button>
+      {open && (
+        <div className={`popover ${up ? 'up' : ''} create-pop`} role="menu">
+          <button className="pop-item" role="menuitem" onClick={() => run(() => app.requireAuth(() => app.startPublication(null)))}>
+            <Icon name="edit" size={15} /><span><b>Nueva publicación</b><small>Crear, programar o publicar</small></span>
+          </button>
+          <button className="pop-item" role="menuitem" onClick={() => run(app.startRequest)}>
+            <Icon name="inbox" size={15} /><span><b>Nueva petición</b><small>Solicitar contenido al equipo</small></span>
+          </button>
         </div>
       )}
     </div>
@@ -100,11 +127,12 @@ export default function Sidebar() {
         <button className="icon-btn" onClick={() => app.setSidebarCollapsed(!collapsed)} title={collapsed ? 'Expandir' : 'Contraer'} aria-label={collapsed ? 'Expandir barra lateral' : 'Contraer barra lateral'}><Icon name="panel" size={16} /></button>
       </div>
       <AccountSwitcher />
+      <div className="sidebar-create"><CreateMenu block /></div>
 
       <div className="sidebar-scroll">
         <div className="nav-label"><span>CONTENIDO</span></div>
         <NavItem icon="calendar" label="Calendario" active={view === 'calendar'} onClick={() => app.setView('calendar')} />
-        <NavItem icon="list" label="Lista" active={view === 'list'} onClick={() => app.setView('list')} />
+        <NavItem icon="list" label="Publicaciones" active={view === 'list'} onClick={() => app.setView('list')} />
         <NavItem icon="grid" label="Visual Feed" active={view === 'feed'} onClick={() => app.setView('feed')} />
 
         <div className="nav-label"><span>PETICIONES</span></div>
@@ -138,7 +166,7 @@ export default function Sidebar() {
 export function MobileBar() {
   const app = useApp()
   const [more, setMore] = useState(false)
-  const items = [['calendar', 'calendar', 'Calendario'], ['list', 'list', 'Lista'], ['feed', 'grid', 'Feed'], ['requests', 'inbox', 'Peticiones']]
+  const items = [['calendar', 'calendar', 'Calendario'], ['list', 'list', 'Publicaciones'], ['feed', 'grid', 'Feed'], ['requests', 'inbox', 'Peticiones']]
   const extra = [['projects', 'folder', 'Proyectos'], ['library', 'image', 'Biblioteca'], ['stats', 'chart', 'Estadísticas'], ['settings', 'sliders', 'Ajustes']]
   return (
     <>
@@ -147,6 +175,7 @@ export function MobileBar() {
           <div className="dialog narrow" style={{ paddingBottom: 92 }}>
             <div style={{ padding: 12 }}>
               <AccountSwitcher up />
+              <div style={{ margin: '8px 0' }}><CreateMenu block up /></div>
               {extra.map(([v, ic, label]) => (
                 <button key={v} className={`nav-item ${app.view === v ? 'active' : ''}`} style={{ height: 44 }} onClick={() => { app.setView(v); setMore(false) }}><Icon name={ic} size={18} /><span className="txt">{label}</span></button>
               ))}

@@ -97,6 +97,18 @@ OUT=$(php "$ROOT/api/cron/publish_due.php"); ok "cron no republica" "$([ -z "$OU
 # cancelar, renovar, comprobar, desconectar
 R=$(post publications/save "{\"ref\":\"corfu|2026-10-01|c\",\"project_id\":\"corfu\",\"title\":\"C\",\"tipo\":\"imagen\",\"media\":[\"$IMG\"],\"destinations\":[{\"social_account_id\":$ACC,\"status\":\"scheduled\",\"scheduled_at\":\"$FUT\"}]}")
 DX=$(echo "$R" | j destinations.0.id); R=$(post destinations/cancel "{\"id\":$DX}"); ok "cancelar destino programado" "$([ "$(echo "$R" | j ok)" = true ] && echo 1 || echo 0)"
+# zona horaria, historial, borrado y plataformas
+R=$(post publications/save "{\"ref\":\"corfu|2026-10-02|tz\",\"project_id\":\"corfu\",\"title\":\"TZ\",\"tipo\":\"imagen\",\"media\":[\"$IMG\"],\"destinations\":[{\"social_account_id\":$ACC,\"status\":\"scheduled\",\"scheduled_at\":\"$FUT\",\"timezone\":\"Europe/Madrid\"}]}")
+DT=$(echo "$R" | j destinations.0.id)
+ok "zona horaria guardada y devuelta" "$([ "$(echo "$R" | j destinations.0.timezone)" = "Europe/Madrid" ] && echo 1 || echo 0)"
+B=$(get bootstrap)
+ok "bootstrap incluye plataformas (instagram implementada, TikTok no)" "$(echo "$B" | php -r '$d=json_decode(stream_get_contents(STDIN),true); $p=[]; foreach($d["platforms"] as $x){$p[$x["id"]]=$x["implemented"];} echo (!empty($p["instagram"]) && isset($p["tiktok"]) && !$p["tiktok"])?1:0;')"
+ok "historial registra eventos del destino" "$(echo "$B" | php -r '$d=json_decode(stream_get_contents(STDIN),true); $n=0; foreach($d["events"] as $e){ if($e["channel_id"]==(int)$argv[1]) $n++; } echo $n>=1?1:0;' "$DT")"
+ok "historial del publicado incluye published" "$(echo "$B" | php -r '$d=json_decode(stream_get_contents(STDIN),true); $t=[]; foreach($d["events"] as $e){ if($e["channel_id"]==(int)$argv[1]) $t[$e["type"]]=1; } echo (isset($t["published"]))?1:0;' "$D1")"
+R=$(post publications/delete '{"ref":"corfu|2026-09-29|img"}'); CODE=$(echo "$R" | j ok)
+ok "no se puede borrar una publicación ya publicada" "$([ "$CODE" = false ] && echo "$R" | grep -qi 'Meta' && echo 1 || echo 0)"
+R=$(post publications/delete '{"ref":"corfu|2026-10-02|tz"}'); ok "borrar publicación no publicada" "$([ "$(echo "$R" | j ok)" = true ] && echo 1 || echo 0)"
+R=$(post instagram/connect '{"force_reauth":true}'); ok "force_reauth en la URL de autorización" "$(echo "$R" | j url | grep -q 'force_reauth=true' && echo 1 || echo 0)"
 R=$(post accounts/check "{\"id\":$ACC}"); ok "comprobar cuenta devuelve cuota real de Meta" "$([ "$(echo "$R" | j quota.total)" = 50 ] && echo 1 || echo 0)"
 R=$(post accounts/refresh "{\"id\":$ACC}"); ok "renovar token" "$([ "$(echo "$R" | j ok)" = true ] && echo 1 || echo 0)"
 # token inválido → destino falla y la cuenta pasa a caducada

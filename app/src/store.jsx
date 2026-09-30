@@ -7,7 +7,7 @@ import {
 } from './lib/data.js'
 import { demoPublications, demoRequests } from './lib/demo.js'
 import { PROJECTS, PROJECT_NAMES, applyProjectRegistry, resolveProject } from './lib/projects.js'
-import { aggregateStatus, pubRef, statusToEstado, withDestinations } from './lib/destinations.js'
+import { aggregateStatus, combineDateTime, destTime, isoDate, pubRef, statusToEstado, withDestinations } from './lib/destinations.js'
 import { canPublish, useSocial } from './lib/social.jsx'
 
 const Ctx = createContext(null)
@@ -57,6 +57,7 @@ export function AppProvider({ children }) {
   const [hiddenPubs, setHiddenPubs] = useState(0)
   const [hiddenReqs, setHiddenReqs] = useState(0)
   const [overrides, setOverrides] = useState(new Map())
+  const [removed, setRemoved] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [lastSynced, setLastSynced] = useState(null)
@@ -176,13 +177,13 @@ export function AppProvider({ children }) {
       if (map.has(id)) map.set(id, { ...map.get(id), ...o })
       else if (o.fecha && !(id.startsWith('tmp-') && baseRefs.has(pubRef(o)))) extra.push(o)
     }
-    return [...map.values(), ...extra].map((p) => {
+    return [...map.values(), ...extra].filter((p) => !removed.has(p.id)).map((p) => {
       // Fuera de la demo, el estado real de los destinos lo manda el servidor; el snapshot local solo sirve hasta la primera sincronización.
       const dests = demo ? p.destinos : (social.destinationsByRef.get(pubRef(p)) ?? p.destinos)
       const withD = withDestinations(p, dests)
       return withD.destinos?.length ? { ...withD, estado: statusToEstado(aggregateStatus(withD.destinos)) } : withD
     })
-  }, [demo, pubs, overrides, social.destinationsByRef])
+  }, [demo, pubs, overrides, removed, social.destinationsByRef])
 
   const sortedPublications = useMemo(() => [...publications].sort((a, b) => (a.fecha || 0) - (b.fecha || 0)), [publications])
 
@@ -192,7 +193,7 @@ export function AppProvider({ children }) {
       if (projectsFilter.length && !projectsFilter.includes(p.proyecto)) return false
       if (!pubMatchesAccount(p)) return false
       if (canalFilter && (p.canal || '').toLowerCase() !== canalFilter.toLowerCase()) return false
-      if (estadoFilter && (p.estado || '') !== estadoFilter) return false
+      if (estadoFilter ? (p.estado || '') !== estadoFilter : (p.estado || '') === 'Cancelado') return false
       if (q.length >= 2) return [p.titulo, p.copy, p.proyecto, p.canal].some((f) => f && f.toLowerCase().includes(q))
       return true
     })
@@ -209,16 +210,27 @@ export function AppProvider({ children }) {
         const old = prev.get(d.accountId)
         return old && ['published', 'failed'].includes(old.status)
           ? old
-          : { id: `${pub.id}-${d.accountId}`, accountId: d.accountId, canal: 'Instagram', status: d.status, scheduledAt: d.scheduledAt, publishedAt: null, externalPostId: null, errorMessage: null }
+          : { id: `${pub.id}-${d.accountId}`, accountId: d.accountId, canal: 'Instagram', status: d.status, scheduledAt: d.scheduledAt, publishedAt: null, externalPostId: null, errorMessage: null, timezone: d.timezone || null }
       })
     }
     const ref = pubRef(pub)
     return social.savePublicationDestinations({
       ref, previous_ref: previousRef && previousRef !== ref ? previousRef : null, project_id: resolveProject(pub.proyecto)?.id,
       title: pub.titulo, caption: pub.copy || '', media: splitMedia(pub.media), tipo: pub.tipo || 'imagen',
-      destinations: dests.map((d) => ({ social_account_id: Number(d.accountId), status: d.status, scheduled_at: d.scheduledAt ? d.scheduledAt.toISOString() : null })),
+      destinations: dests.map((d) => ({ social_account_id: Number(d.accountId), status: d.status, scheduled_at: d.scheduledAt ? d.scheduledAt.toISOString() : null, timezone: d.timezone || undefined })),
     })
   }, [demo, social])
+
+  // Publicación SIMULADA (solo modo demo): nunca llama a Meta y se avisa siempre de que es un ejemplo.
+  const demoPublish = useCallback((pub, ids) => {
+    const at = new Date()
+    const dests = (pub.destinos || []).map((d) => (ids.includes(d.accountId) && d.status !== 'published' ? { ...d, status: 'published', publishedAt: at, errorMessage: null } : d))
+    const next = { ...pub, destinos: dests, estado: statusToEstado(aggregateStatus(dests)) }
+    setOverride(pub.id, next)
+    setSelectedPub((cur) => (cur && cur.id === pub.id ? next : cur))
+    toast.info('Publicación simulada (modo demo). No se ha enviado nada a Instagram.')
+    return next
+  }, [setOverride, toast])
 
   const publishNow = useCallback(async (list) => {
     const results = []
@@ -257,6 +269,7 @@ export function AppProvider({ children }) {
     if (!demo && config.requestsScriptUrl && isSheetRow) {
       try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...saved, proyecto: sheetProject(saved), destinos: undefined }) } catch { toast.error('No se pudo guardar en la hoja') }
     }
+    if (publishAfter && saved.destinos?.length && demo) demoPublish(saved, publishAfter)
     if (publishAfter && saved.destinos?.length && !demo) {
       const targets = saved.destinos.filter((d) => publishAfter.includes(d.accountId) && ['draft', 'scheduled', 'failed'].includes(d.status))
       await publishNow(targets)
@@ -264,7 +277,7 @@ export function AppProvider({ children }) {
     }
     if (!demo && isSheetRow) setTimeout(async () => { await loadPublications(true); clearOverride(pub.id) }, 5000)
     return saved
-  }, [demo, config.requestsScriptUrl, persistDestinations, publishNow, loadPublications, setOverride, clearOverride, toast])
+  }, [demo, config.requestsScriptUrl, persistDestinations, publishNow, demoPublish, loadPublications, setOverride, clearOverride, toast])
 
   const createPublication = useCallback(async (form, { dests, publishAfter } = {}) => {
     const fecha = new Date(`${form.fecha}T12:00:00`)
@@ -283,6 +296,7 @@ export function AppProvider({ children }) {
       setOverride(saved.id, saved)
       setEditing(null)
       toast.success('Publicación creada (demo)')
+      if (publishAfter?.length && saved.destinos?.length) return demoPublish(saved, publishAfter)
       return saved
     }
     try {
@@ -302,14 +316,74 @@ export function AppProvider({ children }) {
       await publishNow(targets)
     }
     return saved
-  }, [demo, config.requestsScriptUrl, persistDestinations, publishNow, loadPublications, setOverride, toast])
+  }, [demo, config.requestsScriptUrl, persistDestinations, publishNow, demoPublish, loadPublications, setOverride, toast])
 
   // Acciones sobre un destino ya existente (detalle de publicación).
-  const publishDestinationNow = useCallback(async (d) => { await publishNow([d]) }, [publishNow])
+  const publishDestinationNow = useCallback(async (d) => {
+    if (demo) { if (selectedPub) demoPublish(selectedPub, [d.accountId]); return }
+    await publishNow([d])
+  }, [demo, selectedPub, demoPublish, publishNow])
+  const publishPublicationNow = useCallback(async (pub) => {
+    const targets = (pub.destinos || []).filter((d) => ['draft', 'scheduled', 'failed'].includes(d.status))
+    if (demo) { demoPublish(pub, targets.map((d) => d.accountId)); return }
+    await publishNow(targets)
+    setTimeout(() => loadPublications(true), 3000)
+  }, [demo, demoPublish, publishNow, loadPublications])
   const cancelDestination = useCallback(async (d) => {
     if (demo) { setOverride(selectedPub.id, { ...selectedPub, destinos: selectedPub.destinos.map((x) => (x.id === d.id ? { ...x, status: 'cancelled' } : x)) }); return }
     await social.cancelDestination(d.id)
   }, [demo, selectedPub, social, setOverride])
+
+  // Cambiar la fecha de una publicación (arrastrar en el calendario). Los destinos ya publicados no se mueven.
+  const movePublication = useCallback(async (pub, date) => {
+    if (!date || (pub.fecha && isoDate(pub.fecha) === isoDate(date))) return
+    if (pub.destinos?.some((d) => ['published', 'publishing'].includes(d.status))) { toast.error('Esta publicación ya está publicada o publicándose: no se puede cambiar su fecha.'); return }
+    const fecha = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12)
+    const moved = { ...pub, fecha }
+    let saved = moved
+    const dests = (pub.destinos || []).filter((d) => d.status !== 'cancelled').map((d) => ({
+      accountId: d.accountId, status: d.status === 'scheduled' ? 'scheduled' : 'draft',
+      scheduledAt: d.status === 'scheduled' && d.scheduledAt ? combineDateTime(fecha, destTime(d), d.timezone) : null, timezone: d.timezone,
+    }))
+    if (dests.length) {
+      try {
+        const list = await persistDestinations(moved, { previousRef: pubRef(pub), dests })
+        if (list) saved = withDestinations({ ...moved, destinos: list, hora: '' }, list)
+      } catch (e) { toast.error(`No se pudo reprogramar: ${e.message}`); return }
+    }
+    setOverride(pub.id, saved)
+    toast.success(`Movida al ${fecha.getDate()}/${fecha.getMonth() + 1}`)
+    if (!demo && config.requestsScriptUrl && /^\d+$/.test(String(pub.id))) {
+      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...saved, proyecto: sheetProject(saved), destinos: undefined }) } catch { toast.error('No se pudo guardar en la hoja') }
+      setTimeout(async () => { await loadPublications(true); clearOverride(pub.id) }, 5000)
+    }
+  }, [demo, config.requestsScriptUrl, persistDestinations, loadPublications, setOverride, clearOverride, toast])
+
+  // Eliminar: quita los destinos no publicados y marca la fila de la hoja como Cancelado (la hoja no admite borrar filas).
+  // Una publicación ya publicada no se puede eliminar de Instagram desde la API de Meta.
+  const deletePublication = useCallback(async (pub) => {
+    if (pub.destinos?.some((d) => ['published', 'publishing'].includes(d.status))) {
+      toast.error('Esta publicación ya está en Instagram. Meta no permite borrarla desde la API: elimínala desde la app de Instagram.')
+      return false
+    }
+    if (!demo && pub.destinos?.length) {
+      try { await social.deletePublication(pubRef(pub)) } catch { return false }
+    }
+    const isSheetRow = /^\d+$/.test(String(pub.id))
+    if (!demo && isSheetRow && config.requestsScriptUrl) {
+      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...pub, proyecto: sheetProject(pub), estado: 'Cancelado', destinos: undefined }) } catch { toast.error('No se pudo actualizar la hoja') }
+    }
+    if (isSheetRow && !demo) setOverride(pub.id, { ...pub, destinos: undefined, estado: 'Cancelado' })
+    else setRemoved((r) => new Set(r).add(pub.id))
+    setSelectedPub(null)
+    toast.success(demo ? 'Publicación eliminada (demo)' : 'Publicación eliminada')
+    if (!demo) setTimeout(() => loadPublications(true), 4000)
+    return true
+  }, [demo, config.requestsScriptUrl, social, loadPublications, setOverride, toast])
+
+  // Crear desde cualquier vista: una publicación no necesita petición previa.
+  const startPublication = useCallback((date = null) => { setNewPubDate(date); setEditing('new') }, [])
+  const startRequest = useCallback(() => setRequestForm(true), [])
 
   // ── Peticiones ──────────────────────────────────────────────────────────
   const loadRequests = useCallback(async () => {
@@ -417,9 +491,9 @@ export function AppProvider({ children }) {
 
   // ── Demo ────────────────────────────────────────────────────────────────
   const enterDemo = useCallback(() => {
-    setDemo(true); setYear(now.getFullYear()); setMonth(now.getMonth()); setProjectsFilter([]); setOverrides(new Map())
+    setDemo(true); setYear(now.getFullYear()); setMonth(now.getMonth()); setProjectsFilter([]); setOverrides(new Map()); setRemoved(new Set())
   }, [])
-  const exitDemo = useCallback(() => { setDemo(false); setOverrides(new Map()) }, [])
+  const exitDemo = useCallback(() => { setDemo(false); setOverrides(new Map()); setRemoved(new Set()) }, [])
 
   // ── Mes ─────────────────────────────────────────────────────────────────
   const shiftMonth = useCallback((delta) => {
@@ -436,7 +510,7 @@ export function AppProvider({ children }) {
     config, isAuth, demo, view, setView, settingsTab, setSettingsTab, goIntegrations, reqFilter, setReqFilter, year, month, shiftMonth, goToday, setYear, setMonth,
     projectsFilter, setProjectsFilter, canalFilter, setCanalFilter, estadoFilter, setEstadoFilter, search, setSearch,
     publications, sortedPublications, filteredPublications, projects: PROJECTS, projectNames: PROJECT_NAMES, hiddenCount: hiddenPubs + hiddenReqs,
-    loading, error, lastSynced, loadPublications, savePublication, createPublication, publishDestinationNow, cancelDestination,
+    loading, error, lastSynced, loadPublications, savePublication, createPublication, publishPublicationNow, publishDestinationNow, cancelDestination, movePublication, deletePublication, startPublication, startRequest,
     requests, requestsLoading, pendingCount, loadRequests, changeRequestState, saveRequest, deleteRequest, submitRequest, openEditorForRequest,
     selectedPub, setSelectedPub, editing, setEditing, showAuth, setShowAuth,
     requestForm, setRequestForm, requestEdit, setRequestEdit, requestDelete, setRequestDelete, toasts, toast,

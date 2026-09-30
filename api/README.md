@@ -12,7 +12,15 @@ La app estática (`index.html`) sigue funcionando sin él: Google Sheets y Apps 
 | `publications` | Copia del contenido a publicar (texto, archivos, tipo), identificada por `ref` (proyecto + fecha + título). |
 | `publication_channels` | Destinos: una fila por publicación y cuenta (`status`, `scheduled_at`, `published_at`, `external_post_id`, `error_message`). |
 
+| `publication_events` | Historial de cada destino (creada, programada, reprogramada, publicando, publicada, error…) que se muestra en el detalle. |
+
+Cada destino guarda también su `timezone` (la hora se introduce en esa zona y se almacena en UTC; el cron no depende del navegador).
+
 Estados de un destino: `draft`, `scheduled`, `publishing`, `published`, `failed`, `cancelled`.
+
+Plataformas: `src/Platforms.php` describe los canales. Solo Instagram está implementado; Facebook, TikTok y LinkedIn figuran como «próximamente» (el backend rechaza publicar en ellos) y no se simula ninguna conexión.
+
+Borrar: `publications/delete` elimina la publicación y sus destinos no publicados. Meta no permite borrar contenido ya publicado desde la API, así que el servidor responde 409 en ese caso.
 
 ## Puesta en marcha
 
@@ -49,4 +57,4 @@ Estados de un destino: `draft`, `scheduled`, `publishing`, `published`, `failed`
 
 ## Pruebas
 
-`bash api/tests/e2e.sh` levanta el backend y un Meta simulado (`tests/mock_meta.php`) y recorre OAuth, conexión, publicación de imagen/reel/carrusel, programación por cron, errores y desconexión.
+`bash api/tests/e2e.sh` levanta el backend y un Meta simulado (`tests/mock_meta.php`) y recorre OAuth (incl. `force_reauth`), conexión, publicación de imagen/reel/carrusel, programación por cron con zona horaria, historial, borrado, errores y desconexión. Solo se ha probado contra el Meta simulado: la primera conexión real necesita una app de Meta configurada (ver «Puesta en marcha»).

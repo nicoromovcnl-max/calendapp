@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { CHANNELS, MONTHS, PUB_ESTADOS, WEEKDAYS, fmtLong, fmtShort, projectColor, sameDay, splitMedia, timeAgo } from '../lib/data.js'
 import { ChannelTile, Cover, DemoBanner, Empty, Icon, Menu, Modal, PageHead, ProjectFilter, StatusBadge, Thumb, firstMedia, stateDot } from './ui.jsx'
-import { aggregateStatus, destLabel } from '../lib/destinations.js'
+import { aggregateStatus, destLabel, destTime } from '../lib/destinations.js'
+import { CreateMenu } from './Sidebar.jsx'
 
 const VIEW_LABELS = { calendar: 'Mes', list: 'Lista' }
 
@@ -12,7 +13,7 @@ function occurrencesOf(pub, account, accountById) {
   const dests = pub.destinos.filter((d) => !account || d.accountId === account.id)
   return dests.map((d) => ({
     key: `${pub.id}:${d.id}`, pub, dest: d, acc: accountById(d.accountId),
-    hora: d.scheduledAt ? `${String(d.scheduledAt.getHours()).padStart(2, '0')}:${String(d.scheduledAt.getMinutes()).padStart(2, '0')}` : pub.hora || '',
+    hora: destTime(d) || pub.hora || '',
     label: destLabel(d.status),
   }))
 }
@@ -30,7 +31,7 @@ function ViewSwitch() {
 
 function Filters() {
   const app = useApp()
-  const active = app.projectsFilter.length || app.canalFilter || app.estadoFilter
+  const active = app.projectsFilter.length || app.canalFilter || app.estadoFilter || app.activeAccount
   return (
     <div className="toolbar">
       <div className="search">
@@ -38,13 +39,16 @@ function Filters() {
         <input className="input" placeholder="Buscar publicaciones…" aria-label="Buscar publicaciones" value={app.search} onChange={(e) => app.setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && app.setSearch('')} />
       </div>
       <ProjectFilter projects={app.projectNames} value={app.projectsFilter} onChange={app.setProjectsFilter} />
+      <select className="select filters-select" value={app.activeAccount || ''} onChange={(e) => app.setActiveAccount(e.target.value || null)} aria-label="Cuenta">
+        <option value="">Todas las cuentas</option>{app.accounts.map((a) => <option key={a.id} value={a.id}>@{a.handle}</option>)}
+      </select>
       <select className="select filters-select" value={app.canalFilter} onChange={(e) => app.setCanalFilter(e.target.value)} aria-label="Canal">
         <option value="">Todos los canales</option>{CHANNELS.map((c) => <option key={c}>{c}</option>)}
       </select>
       <select className="select filters-select" value={app.estadoFilter} onChange={(e) => app.setEstadoFilter(e.target.value)} aria-label="Estado">
         <option value="">Todos los estados</option>{PUB_ESTADOS.map((c) => <option key={c}>{c}</option>)}
       </select>
-      {active ? <button className="btn btn-ghost btn-sm" onClick={() => { app.setProjectsFilter([]); app.setCanalFilter(''); app.setEstadoFilter('') }}><Icon name="x" size={13} /> Limpiar</button> : null}
+      {active ? <button className="btn btn-ghost btn-sm" onClick={() => { app.setProjectsFilter([]); app.setCanalFilter(''); app.setEstadoFilter(''); app.setActiveAccount(null) }}><Icon name="x" size={13} /> Limpiar</button> : null}
     </div>
   )
 }
@@ -130,7 +134,14 @@ function CalendarView() {
   }, [pubs, account, app.accountById])
   const today = new Date()
   const LIMIT = 3
-  const addOn = (d) => app.requireAuth(() => { app.setNewPubDate(d); app.setEditing('new') })
+  const addOn = (d) => app.requireAuth(() => app.startPublication(d))
+  const [over, setOver] = useState('')
+  const onDrop = (e, d) => {
+    e.preventDefault(); setOver('')
+    const id = e.dataTransfer.getData('text/plain')
+    const pub = app.publications.find((p) => p.id === id)
+    if (pub) app.requireAuth(() => app.movePublication(pub, d))
+  }
 
   return (
     <div className="card cal-card">
@@ -139,13 +150,14 @@ function CalendarView() {
         {days.map((d) => {
           const list = byDay.get(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`) || []
           return (
-            <div key={d.toISOString()} className={`cal-cell ${d.getMonth() !== month ? 'out' : ''} ${sameDay(d, today) ? 'today' : ''}`}>
+            <div key={d.toISOString()} className={`cal-cell ${d.getMonth() !== month ? 'out' : ''} ${sameDay(d, today) ? 'today' : ''} ${over === d.toISOString() ? 'drop' : ''}`}
+              onDragOver={(e) => { if (app.isAuth) { e.preventDefault(); setOver(d.toISOString()) } }} onDragLeave={() => setOver((o) => (o === d.toISOString() ? '' : o))} onDrop={(e) => onDrop(e, d)}>
               <div className="cal-cell-head">
                 <span className="cal-num">{d.getDate()}</span>
                 <button className="cal-add" onClick={() => addOn(d)} aria-label={`Crear publicación el ${d.getDate()}`}><Icon name="plus" size={13} /></button>
               </div>
               {list.slice(0, LIMIT).map((o) => (
-                <button key={o.key} className="cal-post" onClick={() => app.setSelectedPub(o.pub)} title={`${o.pub.proyecto} · ${o.pub.titulo}${o.acc ? ` · @${o.acc.handle}` : ''}${o.label ? ` · ${o.label}` : ''}`}>
+                <button key={o.key} className="cal-post" draggable={app.isAuth && !o.pub.destinos?.some((x) => ['published', 'publishing'].includes(x.status))} onDragStart={(e) => { e.dataTransfer.setData('text/plain', o.pub.id); e.dataTransfer.effectAllowed = 'move' }} onClick={() => app.setSelectedPub(o.pub)} title={`${o.pub.proyecto} · ${o.pub.titulo}${o.acc ? ` · @${o.acc.handle}` : ''}${o.label ? ` · ${o.label}` : ''}`}>
                   <Thumb media={firstMedia(o.pub)} tipo={o.pub.tipo} size="sm" project={o.pub.proyecto} />
                   <span className="body">
                     <span className="ti">{o.pub.titulo || o.pub.proyecto}</span>
@@ -183,7 +195,7 @@ export function PubTable({ pubs }) {
           <thead>
             <tr>
               <th className="col-check" style={{ width: 44 }}><input type="checkbox" className="check" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(pubs.map((p) => p.id)))} aria-label="Seleccionar todas" /></th>
-              <th>Contenido</th><th className="hide-sm">Proyecto</th><th className="hide-sm">Cuenta</th><th className="hide-sm">Canal</th><th className="hide-sm">Fecha</th><th className="col-state">Estado</th><th className="hide-sm" style={{ width: 44 }} />
+              <th>Contenido</th><th className="hide-sm">Proyecto</th><th className="hide-sm">Cuenta</th><th className="hide-sm">Canal</th><th className="hide-sm">Fecha</th><th className="hide-sm">Hora</th><th className="col-state">Estado</th><th className="hide-sm" style={{ width: 44 }} />
             </tr>
           </thead>
           <tbody>
@@ -207,12 +219,14 @@ export function PubTable({ pubs }) {
                   <td className="hide-sm"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><i className="state-dot" style={{ '--dot': c.dot }} />{p.proyecto}</span></td>
                   <td className="hide-sm">{accs.length ? <span title={accs.map((a) => `@${a.handle}`).join(', ')}>@{accs[0].handle}{accs.length > 1 && <span className="muted"> +{accs.length - 1}</span>}</span> : <span className="muted">—</span>}</td>
                   <td className="hide-sm">{p.canal ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ChannelTile canal={p.canal} size={20} />{p.canal}</span> : <span className="muted">—</span>}</td>
-                  <td className="hide-sm" style={{ whiteSpace: 'nowrap' }}><span style={{ fontWeight: 500 }}>{fmtShort(p.fecha)}</span>{p.hora && <small className="muted" style={{ display: 'block' }}>{p.hora}</small>}</td>
+                  <td className="hide-sm" style={{ whiteSpace: 'nowrap' }}><span style={{ fontWeight: 500 }}>{fmtShort(p.fecha)}</span></td>
+                  <td className="hide-sm" style={{ whiteSpace: 'nowrap' }}>{p.hora ? <span>{p.hora}</span> : <span className="muted">—</span>}</td>
                   <td><StatusBadge estado={agg ? destLabel(agg) : p.estado} />{(p.destinos?.length || 0) > 1 && <small className="muted" style={{ display: 'block', marginTop: 2 }}>{p.destinos.length} destinos</small>}</td>
                   <td className="actions hide-sm">
                     <Menu items={[
                       { label: 'Abrir', icon: 'external', onClick: () => app.setSelectedPub(p) },
                       { label: 'Editar', icon: 'edit', onClick: () => app.requireAuth(() => app.setEditing(p)) },
+                      !p.destinos?.some((d) => ['published', 'publishing'].includes(d.status)) && { label: 'Eliminar', icon: 'trash', onClick: () => app.requireAuth(() => app.deletePublication(p)) },
                     ]} />
                   </td>
                 </tr>
@@ -240,8 +254,8 @@ function ListView() {
 // ── Página ────────────────────────────────────────────────────────────────
 const TITLES = { calendar: 'Calendario', list: 'Publicaciones' }
 const SUBTITLES = {
-  calendar: 'Planifica y revisa el contenido de todos tus proyectos.',
-  list: 'Listado completo de publicaciones con filtros.',
+  calendar: 'Planifica, programa y reorganiza el contenido. Arrastra una publicación para cambiar su fecha.',
+  list: 'Crea y gestiona todas las publicaciones, con o sin petición previa.',
 }
 
 export default function PubViews() {
@@ -253,7 +267,7 @@ export default function PubViews() {
     <div className="view-enter" key={view}>
       <PageHead title={TITLES[view]} subtitle={SUBTITLES[view]}>
         <button className="btn btn-icon" onClick={() => app.loadPublications(true)} title={app.lastSynced ? `Sincronizado ${timeAgo(app.lastSynced)}` : 'Sincronizar'} aria-label="Sincronizar"><Icon name="refresh" size={15} className={app.loading ? 'spin' : ''} /></button>
-        <button className="btn btn-primary" onClick={() => app.requireAuth(() => { app.setNewPubDate(null); app.setEditing('new') })}><Icon name="plus" size={15} /> Crear</button>
+        <CreateMenu />
       </PageHead>
       <DemoBanner />
       <ErrorBanner />

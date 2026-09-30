@@ -3,7 +3,7 @@ import { useApp } from '../store.jsx'
 import {
   CHANNELS, PUB_ESTADOS, TIPOS, readAsDataUrl, scriptUploadFile, splitMedia, thumbOf, toInputDate,
 } from '../lib/data.js'
-import { combineDateTime, destLabel, hhmm, pubRef } from '../lib/destinations.js'
+import { TIMEZONES, combineDateTime, defaultTz, destLabel, destTime, pubRef } from '../lib/destinations.js'
 import { AccountStatusBadge } from './ui.jsx'
 import { prettyProject } from '../lib/projects.js'
 import { ChannelTile, Cover, Icon, Modal, ProjectAvatar, StatusBadge, tipoIcon } from './ui.jsx'
@@ -176,10 +176,9 @@ export default function Editor() {
     })
   const [selected, setSelected] = useState(() => new Set((pub?.destinos || []).filter((d) => d.status !== 'cancelled').map((d) => d.accountId)))
   const [touched, setTouched] = useState(false)
-  const [hora, setHora] = useState(() => {
-    const d = (pub?.destinos || []).find((x) => x.scheduledAt)
-    return d ? hhmm(d.scheduledAt) : ''
-  })
+  const firstScheduled = (pub?.destinos || []).find((x) => x.scheduledAt)
+  const [hora, setHora] = useState(() => (firstScheduled ? destTime(firstScheduled) : ''))
+  const [tz, setTz] = useState(() => firstScheduled?.timezone || defaultTz())
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState('')
   const previousRef = useMemo(() => (pub ? pubRef(pub) : null), [pub])
@@ -192,8 +191,10 @@ export default function Editor() {
   // Sin selección manual, los destinos por defecto son las cuentas del proyecto elegido.
   useEffect(() => {
     if (touched || (pub?.destinos?.length)) return
-    setSelected(new Set(app.accounts.filter((a) => a.proyecto === form.proyecto && (app.canPublish(a) || a.status === 'demo')).map((a) => a.id)))
-  }, [form.proyecto, touched, pub, app.accounts, app.canPublish])
+    const usable = app.accounts.filter((a) => a.proyecto === form.proyecto && (app.canPublish(a) || a.status === 'demo'))
+    const active = usable.find((a) => a.id === app.account?.id)
+    setSelected(new Set((active ? [active] : usable).map((a) => a.id)))
+  }, [form.proyecto, touched, pub, app.accounts, app.account, app.canPublish])
 
   const backend = app.social.backend
   const disabledReason = form.canal !== 'Instagram' ? 'Este canal solo se registra en el calendario.'
@@ -207,10 +208,10 @@ export default function Editor() {
 
   const validateDestinations = (scheduling, now) => {
     if (!usesDestinations) return ''
-    if (form.tipo === 'texto' || splitMedia(form.media).length === 0) return 'Instagram necesita una imagen o un vídeo para publicar.'
+    if ((scheduling || now) && (form.tipo === 'texto' || splitMedia(form.media).length === 0)) return 'Instagram necesita una imagen o un vídeo para programar o publicar. Puedes guardar un borrador sin archivo.'
     if (scheduling) {
       if (!hora) return 'Indica la hora para programar la publicación.'
-      const when = combineDateTime(new Date(`${form.fecha}T12:00:00`), hora)
+      const when = combineDateTime(new Date(`${form.fecha}T12:00:00`), hora, tz)
       if (!when) return 'La hora no es válida.'
       if (!now && !app.demo && when <= new Date()) return 'La hora programada ya ha pasado. Cámbiala o usa “Publicar ahora”.'
     }
@@ -219,11 +220,11 @@ export default function Editor() {
 
   const buildDests = (estado, scheduling) => {
     if (!usesDestinations) return undefined
-    const when = scheduling ? combineDateTime(new Date(`${form.fecha}T12:00:00`), hora) : null
+    const when = scheduling ? combineDateTime(new Date(`${form.fecha}T12:00:00`), hora, tz) : null
     return [...selected].map((accountId) => {
       const ex = existing.get(accountId)
       if (ex && ex.status === 'published') return { accountId, status: 'published', scheduledAt: ex.scheduledAt }
-      return { accountId, status: scheduling ? 'scheduled' : 'draft', scheduledAt: when }
+      return { accountId, status: scheduling ? 'scheduled' : 'draft', scheduledAt: when, timezone: tz }
     }).filter((d) => d.status !== 'published')
   }
 
@@ -231,7 +232,7 @@ export default function Editor() {
     if (!valid || saving) return
     const estado = estadoOverride ?? form.estado
     const scheduling = !now && estado === 'Programado'
-    const err = validateDestinations(scheduling, now)
+    const err = (scheduling || now) && form.canal === 'Instagram' && !usesDestinations ? needAccount : validateDestinations(scheduling, now)
     if (err) { setProblem(err); return }
     setProblem('')
     setSaving(true)
@@ -245,29 +246,29 @@ export default function Editor() {
     } finally { setSaving(false) }
   }
 
-  const canPublishNow = usesDestinations && !app.demo && pickedAccounts.some((a) => app.canPublish(a) && existing.get(a.id)?.status !== 'published')
+  const noAccounts = form.canal === 'Instagram' && !app.accounts.some((a) => app.canPublish(a) || a.status === 'demo')
+  const needAccount = noAccounts ? 'Conecta una cuenta de Instagram para programar o publicar. Puedes guardar un borrador mientras tanto.' : 'Elige al menos una cuenta de destino para programar o publicar.'
+  const canPublishNow = usesDestinations && pickedAccounts.some((a) => (app.demo || app.canPublish(a)) && existing.get(a.id)?.status !== 'published')
+  const publishWhy = !valid ? 'Completa proyecto, fecha y título.' : form.canal !== 'Instagram' ? 'Este canal solo se registra en el calendario.' : disabledReason || (noAccounts ? needAccount : !usesDestinations ? 'Elige una cuenta de destino.' : '')
   const busyLabel = saving ? 'Guardando…' : null
 
   return (
-    <Modal onClose={close}>
+    <Modal onClose={close} size="editor">
       <div className="dialog-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="icon-btn" onClick={close} aria-label="Cerrar"><Icon name="x" size={16} /></button>
           <div><h2>{isNew ? 'Nueva publicación' : 'Editar publicación'}</h2><small>{isNew ? 'Se añadirá a la hoja de publicaciones' : 'Los cambios se guardan en la hoja'}</small></div>
         </div>
-        <div className="page-actions">
-          <button className="btn btn-ghost" onClick={close}>Cancelar</button>
-          {canPublishNow && <button className="btn btn-accent" disabled={!valid || saving} onClick={() => save(undefined, { now: true })}><Icon name="send" size={14} /> Publicar ahora</button>}
-          {isNew ? (
-            <>
-              <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>{busyLabel || 'Guardar borrador'}</button>
-              <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save('Programado')}>{busyLabel || 'Programar publicación'}</button>
-            </>
-          ) : <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save()}>{busyLabel || 'Guardar cambios'}</button>}
-        </div>
       </div>
 
       <div className="dialog-body">
+        {noAccounts && !app.demo && (
+          <div className="no-account" style={{ marginBottom: 'var(--s4)' }}>
+            <Icon name="info" size={18} />
+            <div className="grow"><b>Conecta una cuenta primero</b><small>Para programar o publicar necesitas una cuenta de Instagram conectada con la autorización oficial de Meta. Mientras tanto puedes guardar borradores.</small></div>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => { app.setEditing(null); app.goIntegrations() }}><Icon name="plus" size={14} /> Conectar Instagram</button>
+          </div>
+        )}
         {problem && <div className="banner err"><Icon name="info" size={15} /><span className="grow">{problem}</span></div>}
         <div className="editor-grid">
           <div className="form-card">
@@ -295,15 +296,15 @@ export default function Editor() {
             <div className="form-section">
               <div className="field"><label htmlFor="e-titulo">Título *</label><input id="e-titulo" className="input" value={form.titulo} onChange={(e) => set('titulo', e.target.value)} placeholder="Nombre interno de la publicación" /></div>
               <div className="field">
+                <span className="label">Tipo de contenido</span>
+                <div className="chip-group">{TIPOS.map((t) => <button type="button" key={t} className={`chip ${form.tipo === t ? 'on' : ''}`} aria-pressed={form.tipo === t} onClick={() => set('tipo', t)} style={{ textTransform: 'capitalize' }}><Icon name={tipoIcon[t]} size={13} />{t}</button>)}</div>
+              </div>
+              <div className="field">
                 <label htmlFor="e-copy">Contenido</label>
                 <div className="copy-wrap">
                   <textarea id="e-copy" value={form.copy} onChange={(e) => set('copy', e.target.value)} placeholder="Escribe el texto de la publicación…" />
                   <div className="copy-foot"><span>Puedes usar #hashtags y emojis</span><span>{form.copy.length} caracteres</span></div>
                 </div>
-              </div>
-              <div className="field">
-                <span className="label">Tipo de contenido</span>
-                <div className="chip-group">{TIPOS.map((t) => <button type="button" key={t} className={`chip ${form.tipo === t ? 'on' : ''}`} aria-pressed={form.tipo === t} onClick={() => set('tipo', t)} style={{ textTransform: 'capitalize' }}><Icon name={tipoIcon[t]} size={13} />{t}</button>)}</div>
               </div>
             </div>
 
@@ -313,19 +314,26 @@ export default function Editor() {
             </div>
 
             <div className="form-section">
-              <div className="field-row">
+              <div className="field-row three">
                 <div className="field"><label htmlFor="e-fecha">Fecha *</label><input id="e-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
-                <div className="field"><label htmlFor="e-hora">Hora de publicación</label><input id="e-hora" type="time" className="input" value={hora} disabled={!usesDestinations} onChange={(e) => setHora(e.target.value)} /></div>
-              </div>
-              <div className="field-row">
-                <div className="field"><label htmlFor="e-estado">Estado</label>
-                  <select id="e-estado" className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>
-                    <option value="">Sin estado</option>{PUB_ESTADOS.map((s) => <option key={s}>{s}</option>)}
+                <div className="field"><label htmlFor="e-hora">Hora</label><input id="e-hora" type="time" className="input" value={hora} disabled={!usesDestinations} onChange={(e) => setHora(e.target.value)} /></div>
+                <div className="field"><label htmlFor="e-tz">Zona horaria</label>
+                  <select id="e-tz" className="select" value={tz} disabled={!usesDestinations} onChange={(e) => setTz(e.target.value)}>
+                    {[...new Set([...TIMEZONES, tz])].map((z) => <option key={z} value={z}>{z.replace('_', ' ')}</option>)}
                   </select>
                 </div>
-                {!isNew && <div className="field"><label htmlFor="e-url">URL de la publicación</label><input id="e-url" className="input" value={form.url_post} onChange={(e) => set('url_post', e.target.value)} placeholder="https://…" /></div>}
               </div>
-              {usesDestinations && <p className="muted" style={{ margin: 0, fontSize: 12 }}>La hora se guarda en el servidor para programar cada destino ({Intl.DateTimeFormat().resolvedOptions().timeZone}). La hoja no guarda horas.</p>}
+              {!isNew && (
+                <div className="field-row">
+                  <div className="field"><label htmlFor="e-estado">Estado en la hoja</label>
+                    <select id="e-estado" className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>
+                      <option value="">Sin estado</option>{PUB_ESTADOS.map((s) => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="field"><label htmlFor="e-url">URL de la publicación</label><input id="e-url" className="input" value={form.url_post} onChange={(e) => set('url_post', e.target.value)} placeholder="https://…" /></div>
+                </div>
+              )}
+              {usesDestinations && <p className="muted" style={{ margin: 0, fontSize: 12 }}>El servidor publica a la hora indicada en {tz.replace('_', ' ')}, aunque el navegador esté cerrado. La hoja no guarda horas.</p>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button type="button" className={`switch ${form.promocionado ? 'on' : ''}`} onClick={() => set('promocionado', !form.promocionado)} role="switch" aria-checked={form.promocionado} aria-label="Campaña de Ads" />
                 <div style={{ flex: 1 }}><b>Campaña de Ads</b><div className="muted" style={{ fontSize: 12 }}>La publicación se promociona con presupuesto</div></div>
@@ -341,6 +349,18 @@ export default function Editor() {
             </div>
             <PostPreview form={form} accountHandle={firstHandle} />
           </div>
+        </div>
+      </div>
+
+      <div className="editor-foot">
+        <span className="hint" role="status" style={problem ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{problem || (publishWhy && !canPublishNow ? publishWhy : app.demo ? 'Modo demo: publicar y conectar son simulaciones.' : ' ')}</span>
+        <div className="page-actions">
+          <button className="btn btn-ghost" onClick={close}>Cancelar</button>
+          {isNew
+            ? <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>{busyLabel || 'Guardar borrador'}</button>
+            : <button className="btn" disabled={!valid || saving} onClick={() => save()}>{busyLabel || 'Guardar cambios'}</button>}
+          <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save('Programado')}>Programar</button>
+          <button className="btn btn-accent" disabled={!valid || saving || !canPublishNow} title={!canPublishNow ? publishWhy : undefined} onClick={() => save(undefined, { now: true })}><Icon name="send" size={14} /> Publicar ahora</button>
         </div>
       </div>
     </Modal>

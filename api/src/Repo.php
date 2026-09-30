@@ -128,15 +128,25 @@ final class Repo
             if ($status === 'scheduled' && !$when) {
                 $status = 'draft';
             }
+            $tz = $d['timezone'] ?? null;
             if (isset($existing[$accId])) {
-                if (in_array($existing[$accId]['status'], ['published', 'publishing'], true)) {
+                $old = $existing[$accId];
+                if (in_array($old['status'], ['published', 'publishing'], true)) {
                     continue;
                 }
-                $db->prepare('UPDATE publication_channels SET status = ?, scheduled_at = ?, error_message = NULL, container_id = NULL, updated_at = ? WHERE id = ?')
-                    ->execute([$status, $when, $now, $existing[$accId]['id']]);
+                $db->prepare('UPDATE publication_channels SET status = ?, scheduled_at = ?, timezone = ?, error_message = NULL, container_id = NULL, updated_at = ? WHERE id = ?')
+                    ->execute([$status, $when, $tz, $now, $old['id']]);
+                if ($old['scheduled_at'] !== $when || $old['status'] !== $status) {
+                    self::logEvent((int) $old['id'], $status === 'scheduled' ? ($old['scheduled_at'] ? 'rescheduled' : 'scheduled') : 'draft', $when ? 'Programado para ' . $when : null);
+                }
             } else {
-                $db->prepare('INSERT INTO publication_channels (publication_id, social_account_id, status, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-                    ->execute([$publicationId, $accId, $status, $when, $now, $now]);
+                $db->prepare('INSERT INTO publication_channels (publication_id, social_account_id, status, scheduled_at, timezone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                    ->execute([$publicationId, $accId, $status, $when, $tz, $now, $now]);
+                $id = (int) $db->lastInsertId();
+                self::logEvent($id, 'created', 'Destino añadido');
+                if ($status === 'scheduled') {
+                    self::logEvent($id, 'scheduled', 'Programado para ' . $when);
+                }
             }
         }
         foreach ($existing as $accId => $r) {
@@ -146,12 +156,44 @@ final class Repo
         }
     }
 
+    public static function logEvent(int $channelId, string $type, ?string $message = null): void
+    {
+        self::db()->prepare('INSERT INTO publication_events (channel_id, at, type, message) VALUES (?, ?, ?, ?)')->execute([$channelId, Db::now(), $type, $message]);
+    }
+
+    public static function events(int $limit = 600): array
+    {
+        $st = self::db()->prepare('SELECT channel_id, at, type, message FROM publication_events ORDER BY id DESC LIMIT ?');
+        $st->bindValue(1, $limit, \PDO::PARAM_INT);
+        $st->execute();
+        return array_map(fn ($r) => ['channel_id' => (int) $r['channel_id'], 'at' => $r['at'], 'type' => $r['type'], 'message' => $r['message']], array_reverse($st->fetchAll()));
+    }
+
+    // Elimina la publicación y sus destinos no publicados. Devuelve false si hay destinos ya publicados.
+    public static function deletePublication(string $ref): bool
+    {
+        $db = self::db();
+        $st = $db->prepare('SELECT id FROM publications WHERE ref = ?');
+        $st->execute([$ref]);
+        $id = $st->fetchColumn();
+        if (!$id) {
+            return true;
+        }
+        $st = $db->prepare("SELECT COUNT(*) FROM publication_channels WHERE publication_id = ? AND status IN ('published','publishing')");
+        $st->execute([$id]);
+        if ((int) $st->fetchColumn() > 0) {
+            return false;
+        }
+        $db->prepare('DELETE FROM publications WHERE id = ?')->execute([$id]);
+        return true;
+    }
+
     public static function channelPublic(array $r): array
     {
         return [
             'id' => (int) $r['id'], 'ref' => $r['ref'] ?? null, 'publication_id' => (int) $r['publication_id'], 'social_account_id' => (int) $r['social_account_id'],
             'status' => $r['status'], 'scheduled_at' => $r['scheduled_at'], 'published_at' => $r['published_at'], 'external_post_id' => $r['external_post_id'],
-            'external_url' => $r['external_url'], 'error_message' => $r['error_message'],
+            'external_url' => $r['external_url'], 'error_message' => $r['error_message'], 'timezone' => $r['timezone'] ?? null,
         ];
     }
 
