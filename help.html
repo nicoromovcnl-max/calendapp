@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CALENDAPP — Ayuda</title>
+<link rel="icon" type="image/jpeg" href="https://elchandriogroup.com/calendapp/img/favicon.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; scroll-behavior: smooth; }
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background: #F9FAFB;
+  color: #111827;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ── HEADER — idéntico al de la app ── */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(229,231,235,0.8);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.header-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.header-logo img {
+  height: clamp(28px, 4vw, 40px);
+  width: auto;
+  display: block;
+}
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+.header-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+.header-spacer { flex: 1; }
+
+/* Tab pill — igual que las pestañas PUBLICACIONES / PETICIONES de la app */
+.pill-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+  background: linear-gradient(to bottom, #e2e2e8, #d0d0d8);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.18), inset 0 1px 2px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.85);
+  flex-shrink: 0;
+}
+.pill-btn {
+  padding: 6px 14px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  color: #9ca3af;
+  transition: color 0.15s;
+  font-family: inherit;
+}
+.pill-btn:hover { color: #6b7280; }
+.pill-btn.active {
+  color: #111827;
+  background: linear-gradient(to bottom, #ffffff, #eeeef5);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.20), 0 1px 3px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,1);
+  transform: translateY(-1px);
+}
+
+/* Botón Volver — igual que botones utilitarios del header de la app */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1.5px solid #e8e8ec;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.back-btn:hover { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+
+/* ── CONTENIDO ── */
+.page-body {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+  flex: 1;
+}
+
+.page-hero { margin-bottom: 36px; }
+.page-hero h1 {
+  font-size: clamp(22px, 3.5vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #111827;
+  margin-bottom: 8px;
+  text-wrap: balance;
+}
+.page-hero .lead {
+  font-size: 14.5px;
+  color: #6b7280;
+  max-width: 54ch;
+  line-height: 1.65;
+}
+
+/* Tarjetas de rol */
+.role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 24px;
+}
+.role-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  text-decoration: none;
+  display: block;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+}
+.role-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.07);
+}
+.role-card .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.badge-team  { background: #EFF6FF; color: #1D4ED8; }
+.badge-admin { background: #FEF2F2; color: #DC2626; }
+.role-card strong { display: block; font-size: 13.5px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+.role-card .role-desc { font-size: 12.5px; color: #6b7280; line-height: 1.5; }
+
+/* Banners de sección */
+.role-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin: 48px 0 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.banner-team  { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.banner-admin { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.banner-sub { font-weight: 500; opacity: 0.8; }
+
+/* Secciones — mismas tarjetas que la app */
+.section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 28px 28px 24px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.section-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: #e84530;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.section h2 { font-size: 16px; font-weight: 700; color: #111827; letter-spacing: -0.01em; }
+.section p { font-size: 13.5px; color: #374151; line-height: 1.65; margin-bottom: 12px; }
+.section p:last-child { margin-bottom: 0; }
+
+.sub-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin: 20px 0 8px;
+  display: block;
+}
+
+/* Lista de pasos */
+.steps { list-style: none; display: flex; flex-direction: column; margin: 12px 0; }
+.steps li {
+  display: flex; gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.steps li:last-child { border-bottom: none; padding-bottom: 0; }
+.step-n {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #e84530;
+  color: white;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 2px;
+}
+.step-body strong { display: block; font-size: 13.5px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+.step-body p { font-size: 12.5px; color: #6b7280; margin: 0; line-height: 1.55; }
+
+/* Callout */
+.callout {
+  background: #F9FAFB;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #e84530;
+  border-radius: 0 10px 10px 0;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #374151;
+  margin: 14px 0 0;
+  line-height: 1.55;
+}
+.callout strong { color: #e84530; }
+.callout.tip { border-left-color: #22C55E; }
+.callout.tip strong { color: #16A34A; }
+.callout.warn { border-left-color: #F59E0B; }
+.callout.warn strong { color: #B45309; }
+
+/* Status pills */
+.status-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 100px;
+  font-size: 11.5px; font-weight: 600;
+  border: 1px solid transparent;
+}
+.s-pub  { color: #16A34A; background: #F0FDF4; border-color: #BBF7D0; }
+.s-prog { color: #B45309; background: #FFFBEB; border-color: #FDE68A; }
+.s-bor  { color: #6B7280; background: #F9FAFB; border-color: #E5E7EB; }
+.s-can  { color: #DC2626; background: #FEF2F2; border-color: #FECACA; }
+.s-edi  { color: #2563EB; background: #EFF6FF; border-color: #BFDBFE; }
+
+/* Feature grid */
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+}
+.feat-card {
+  background: #F9FAFB;
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  padding: 14px;
+}
+.feat-card .ico { font-size: 18px; margin-bottom: 6px; }
+.feat-card strong { display: block; font-size: 12.5px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+.feat-card span { font-size: 11.5px; color: #6b7280; line-height: 1.45; }
+
+/* Lista con viñetas */
+.item-list {
+  margin: 12px 0 0 18px;
+  display: flex; flex-direction: column; gap: 7px;
+  font-size: 13.5px; color: #374151;
+}
+.item-list li strong { color: #111827; }
+
+/* Tabla */
+.table-wrap { overflow-x: auto; margin: 12px 0 0; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th {
+  text-align: left; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af;
+  padding: 7px 12px; border-bottom: 1.5px solid #f3f4f6; white-space: nowrap;
+}
+td {
+  padding: 10px 12px; border-bottom: 1px solid #f9fafb;
+  vertical-align: top; line-height: 1.45; color: #374151;
+}
+tr:last-child td { border-bottom: none; }
+td:first-child { font-weight: 600; color: #111827; white-space: nowrap; }
+
+/* FAQ */
+.faq-section { margin-top: 48px; }
+.faq-section > h2 {
+  font-size: 14px; font-weight: 700; color: #111827;
+  margin-bottom: 12px; letter-spacing: -0.01em;
+}
+details {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; margin-bottom: 6px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+summary {
+  font-weight: 600; font-size: 13.5px; color: #111827;
+  cursor: pointer; list-style: none; padding: 15px 18px;
+  display: flex; justify-content: space-between; align-items: center;
+  user-select: none; transition: background 0.1s;
+}
+summary:hover { background: #f9fafb; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-size: 16px; color: #9ca3af; font-weight: 400; flex-shrink: 0; }
+details[open] summary::after { content: "−"; }
+details[open] summary { border-bottom: 1px solid #f3f4f6; }
+.faq-body { padding: 14px 18px; font-size: 13px; color: #6b7280; line-height: 1.65; }
+.faq-body code {
+  background: #f3f4f6; border: 1px solid #e5e7eb;
+  padding: 1px 5px; border-radius: 4px; font-size: 12px;
+}
+
+/* Footer */
+.app-footer {
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+  padding: 20px 24px;
+  margin-top: auto;
+}
+.footer-inner {
+  max-width: 820px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.footer-left { display: flex; align-items: center; gap: 10px; }
+.footer-left img { height: 22px; width: auto; display: block; }
+.footer-sep { width: 1px; height: 14px; background: #e5e7eb; }
+.footer-copy { font-size: 12px; color: #9ca3af; }
+.footer-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.footer-links a { font-size: 12px; color: #9ca3af; text-decoration: none; font-weight: 500; transition: color 0.12s; }
+.footer-links a:hover { color: #e84530; }
+.footer-dot { width: 2px; height: 2px; border-radius: 50%; background: #d1d5db; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header-inner { padding: 0 16px; height: 56px; gap: 10px; }
+  .header-section-label, .header-divider { display: none; }
+  .pill-group { display: none; }
+  .page-body { padding: 28px 16px 64px; }
+  .section { padding: 20px 16px 18px; border-radius: 16px; }
+  .role-grid { grid-template-columns: 1fr; }
+  .feat-grid { grid-template-columns: 1fr 1fr; }
+  .footer-links { display: none; }
+  .footer-inner { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+@media (max-width: 400px) { .feat-grid { grid-template-columns: 1fr; } }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 2px solid #e84530; outline-offset: 2px; border-radius: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="app-header">
+  <div class="header-inner">
+    <a href="https://www.elchandriogroup.com/calendapp/index.html" class="header-logo" aria-label="Ir a CALENDAPP">
+      <img src="./img/logo_calendapp.png" alt="CalendApp by El Chandrio Group" />
+    </a>
+
+    <div class="header-divider"></div>
+    <span class="header-section-label">Ayuda</span>
+
+    <div class="header-spacer"></div>
+
+    <div class="pill-group" role="navigation" aria-label="Secciones de ayuda">
+      <a href="#equipo"      class="pill-btn" id="tab-equipo">Equipo</a>
+      <a href="#admin"       class="pill-btn" id="tab-admin">Admin</a>
+      <a href="#faq-section" class="pill-btn" id="tab-faq">FAQ</a>
+    </div>
+
+    <a href="https://www.elchandriogroup.com/calendapp/index.html" class="back-btn" aria-label="Volver a la app">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2L4 6l4 4"/></svg>
+      Volver a la app
+    </a>
+  </div>
+</header>
+
+<!-- ── CONTENIDO ── -->
+<main class="page-body">
+
+  <!-- Hero -->
+  <div class="page-hero">
+    <h1>¿Cómo funciona CALENDAPP?</h1>
+    <p class="lead">El calendario de publicaciones de El Chandrio Group. Todos los proyectos, en un solo lugar, sincronizados en tiempo real con Google Sheets.</p>
+
+    <div class="role-grid">
+      <a href="#equipo" class="role-card">
+        <div class="badge badge-team">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Equipo
+        </div>
+        <strong>Soy miembro del equipo</strong>
+        <span class="role-desc">Quiero solicitar contenido o consultar el calendario de publicaciones.</span>
+      </a>
+      <a href="#admin" class="role-card">
+        <div class="badge badge-admin">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Admin
+        </div>
+        <strong>Soy administrador</strong>
+        <span class="role-desc">Gestiono publicaciones, apruebo peticiones y edito el contenido del calendario.</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- ════ PARA EL EQUIPO ════ -->
+  <div class="role-banner banner-team" id="equipo">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span>Para el equipo</span>
+    <span class="banner-sub">— Sin necesidad de contraseña de administrador</span>
+  </div>
+
+  <div class="section" id="peticiones">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h2>Solicitar contenido nuevo</h2>
+    </div>
+
+    <p>Si necesitas que se produzca una publicación, haz una petición desde la pestaña <strong>Peticiones</strong>. No hace falta acceso de administrador ni editar el Google Sheets directamente.</p>
+
+    <ol class="steps">
+      <li>
+        <div class="step-n" aria-hidden="true">1</div>
+        <div class="step-body">
+          <strong>Ir a Peticiones</strong>
+          <p>En la barra superior de CALENDAPP, haz clic en la pestaña <em>Peticiones</em>.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">2</div>
+        <div class="step-body">
+          <strong>Nueva petición</strong>
+          <p>Despliega el formulario y rellena toda la información: proyecto, fecha, título, información adicional, tipo de contenido, canal y prioridad.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">3</div>
+        <div class="step-body">
+          <strong>Adjunta el archivo o el link</strong>
+          <p>En el campo <em>Link de contenido</em> puedes pegar una URL de Drive, o pulsar <em>Adjuntar imagen o vídeo</em> para subir el archivo directamente desde tu dispositivo (hasta 50 MB). Si son varios links, sepáralos con comas.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">4</div>
+        <div class="step-body">
+          <strong>Indica tu nombre</strong>
+          <p>Escribe tu nombre en el campo <em>Tu nombre</em>. Se guarda automáticamente en el navegador para la próxima vez.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">5</div>
+        <div class="step-body">
+          <strong>Enviar</strong>
+          <p>La petición se guarda con estado <em>Pendiente</em> y queda visible para los administradores.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">6</div>
+        <div class="step-body">
+          <strong>Seguimiento</strong>
+          <p>Cuando un administrador la apruebe, aparece automáticamente en el calendario en la fecha indicada.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout tip">
+      <strong>Consejo:</strong> Cuanta más información incluyas (referencias, formato, mensaje clave, archivo adjunto), antes podrá el equipo producir el contenido.
+    </div>
+  </div>
+
+  <div class="section" id="adjuntos">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <h2>Adjuntar archivos</h2>
+    </div>
+
+    <p>Tanto al crear una petición como al editarla, puedes adjuntar imágenes o vídeos directamente desde tu dispositivo — muy útil si tienes el archivo guardado en el móvil y no quieres subirlo a Drive manualmente.</p>
+
+    <ul class="item-list" style="margin-top: 8px; margin-bottom: 16px;">
+      <li><strong>Formatos admitidos:</strong> imágenes (JPG, PNG, GIF, WebP…) y vídeos (MP4, MOV…)</li>
+      <li><strong>Tamaño máximo:</strong> 50 MB por archivo</li>
+      <li>El archivo se sube a una carpeta de Google Drive llamada <strong>"Calendapp Adjuntos"</strong> con acceso público por enlace</li>
+      <li>La URL de Drive se añade automáticamente al campo <em>Link de contenido</em> de la petición</li>
+      <li>Si ya había un link en ese campo, la URL del adjunto se añade al final separada por coma</li>
+    </ul>
+
+    <div class="callout warn">
+      <strong>Importante:</strong> Para que la subida funcione, el Google Apps Script debe tener la función <code>uploadFile</code> activa y estar desplegado con permisos de Drive. Si el adjunto no se sube, la petición se envía igualmente sin el archivo.
+    </div>
+  </div>
+
+  <div class="section" id="modo-demo">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <h2>Modo demo</h2>
+    </div>
+
+    <p>Si la app no tiene un Google Sheet conectado, o simplemente quieres explorarla antes de configurarla, puedes activar el <strong>modo demo</strong>. Carga un conjunto de publicaciones de ejemplo con todos los tipos de contenido y proyectos para que puedas navegar libremente.</p>
+
+    <ol class="steps">
+      <li>
+        <div class="step-n" aria-hidden="true">1</div>
+        <div class="step-body">
+          <strong>Pulsar "Ver demo"</strong>
+          <p>Aparece en la pantalla de bienvenida cuando no hay hoja configurada, o en el menú de ajustes.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">2</div>
+        <div class="step-body">
+          <strong>Explorar con datos de ejemplo</strong>
+          <p>El calendario se llena con publicaciones ficticias de varios proyectos: imágenes, vídeos, reels, carruseles, historias y textos.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">3</div>
+        <div class="step-body">
+          <strong>Salir del demo</strong>
+          <p>Pulsa el banner "Salir del demo" que aparece en la cabecera para volver a los datos reales.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout tip">
+      <strong>Nota:</strong> En modo demo no se puede editar ni guardar nada. Es solo para exploración visual.
+    </div>
+  </div>
+
+  <div class="section" id="ver-calendario">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      </div>
+      <h2>Las tres vistas del calendario</h2>
+    </div>
+
+    <p>La pestaña <strong>Publicaciones</strong> muestra todo el contenido programado sin necesidad de iniciar sesión. Puedes cambiar entre tres vistas con los iconos de la cabecera.</p>
+
+    <span class="sub-label" style="margin-top: 0">📅 Vista Mes</span>
+    <p>Cuadrícula mensual clásica. Cada día muestra chips de colores, uno por publicación, con el nombre del proyecto. Los días con muchas publicaciones muestran un indicador de desbordamiento — haz clic en él para verlas todas. Navega entre meses con las flechas del header.</p>
+    <ul class="item-list" style="margin-top: 6px; margin-bottom: 14px;">
+      <li>Haz clic en cualquier chip para abrir el detalle completo de esa publicación</li>
+      <li>Los iconos de tipo (imagen, vídeo, reel…) aparecen sobre cada chip</li>
+      <li>Las publicaciones con campaña de Ads muestran un indicador especial</li>
+    </ul>
+
+    <span class="sub-label">📋 Vista Lista</span>
+    <p>Publicaciones del mes ordenadas cronológicamente, agrupadas por semana. Cada fila muestra proyecto, título, tipo, canal y estado de un vistazo. Es la vista ideal para revisar la planificación semana a semana.</p>
+    <ul class="item-list" style="margin-top: 6px; margin-bottom: 14px;">
+      <li>Filtros rápidos de <strong>Tipo</strong> y <strong>Canal</strong> aparecen encima de la lista — solo se muestran los que existen ese mes</li>
+      <li>Los filtros se pueden combinar: por ejemplo, ver solo reels de Instagram</li>
+      <li>Haz clic en cualquier fila para abrir el detalle</li>
+    </ul>
+
+    <span class="sub-label">📸 Visual Feed</span>
+    <p>Grid estilo feed de Instagram organizado por proyecto. Cada proyecto aparece con su avatar (inicial del nombre) y sus publicaciones en formato mosaico. Es la vista más visual — ideal para revisar cómo queda el grid de cada cuenta.</p>
+    <ul class="item-list" style="margin-top: 6px; margin-bottom: 14px;">
+      <li>Las imágenes se muestran en miniatura; los vídeos y reels tienen un indicador de reproducción</li>
+      <li>Las <strong>historias</strong> aparecen como avatares circulares con aro de gradiente, igual que en Instagram — haz clic para abrirlas</li>
+      <li>Los <strong>carruseles</strong> muestran la primera imagen con un indicador de múltiples piezas</li>
+      <li>Puedes deslizar entre publicaciones dentro del visor de detalle</li>
+    </ul>
+
+    <span class="sub-label">Detalle de publicación</span>
+    <p>Al hacer clic en cualquier publicación (en cualquier vista) se abre un panel con toda la información: imagen o vídeo, copy completo, estado, canal, enlace al post publicado y datos de campaña si los hay.</p>
+    <div class="callout tip">
+      <strong>Copiar copy:</strong> Pulsa el botón de copiar en el panel de detalle para copiar el texto al portapapeles con un clic.
+    </div>
+
+    <span class="sub-label" style="margin-top: 20px;">Estados de las publicaciones</span>
+    <div class="status-row">
+      <span class="status-pill s-pub">▶ Publicado</span>
+      <span class="status-pill s-prog">⏸ Programado</span>
+      <span class="status-pill s-bor">⏹ Borrador</span>
+      <span class="status-pill s-can">✕ Cancelado</span>
+      <span class="status-pill s-edi">✏ En edición</span>
+    </div>
+  </div>
+
+  <div class="section" id="filtros">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      </div>
+      <h2>Filtros y búsqueda</h2>
+    </div>
+
+    <span class="sub-label" style="margin-top:0">Búsqueda global</span>
+    <p>La barra de búsqueda filtra en <strong>todas las fechas</strong>, no solo el mes visible. Busca por título, copy, proyecto o canal. Mínimo 2 caracteres. Pulsa Escape o × para volver al calendario.</p>
+
+    <span class="sub-label">Filtro por proyectos</span>
+    <p>Haz clic en <em>"Proyectos ▾"</em> para ver los chips de proyectos activos. Puedes seleccionar uno o varios a la vez.</p>
+
+    <span class="sub-label">Filtros en Vista Lista</span>
+    <p>En Vista Lista aparecen chips de <strong>Tipo</strong> (imagen, vídeo, reel…) y <strong>Canal</strong> (Instagram, TikTok…). Solo muestra los que existen en ese mes y se pueden combinar entre sí.</p>
+  </div>
+
+  <!-- ════ PARA ADMINISTRADORES ════ -->
+  <div class="role-banner banner-admin" id="admin">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span>Para administradores</span>
+    <span class="banner-sub">— Requiere contraseña de administrador</span>
+  </div>
+
+  <div class="section" id="admin-acceso">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h2>Acceso de administrador</h2>
+    </div>
+
+    <p>El modo administrador se activa con el botón de acceso en la cabecera. Cuando la sesión está activa, el botón se muestra en verde.</p>
+
+    <ol class="steps">
+      <li>
+        <div class="step-n" aria-hidden="true">1</div>
+        <div class="step-body">
+          <strong>Pulsar el botón de acceso</strong>
+          <p>En la cabecera de CALENDAPP, haz clic en el icono de usuario (esquina superior derecha).</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">2</div>
+        <div class="step-body">
+          <strong>Introducir la contraseña</strong>
+          <p>Escribe la contraseña de administrador. Si no la tienes, contacta con el equipo técnico.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n" aria-hidden="true">3</div>
+        <div class="step-body">
+          <strong>Sesión activa</strong>
+          <p>El botón se pone verde. La sesión se guarda en el navegador. Para cerrar sesión, vuelve a pulsar el botón verde.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout">
+      <strong>Nota:</strong> La sesión es por navegador — no afecta a otros usuarios en sus propios dispositivos.
+    </div>
+  </div>
+
+  <div class="section" id="editar">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </div>
+      <h2>Añadir y editar publicaciones</h2>
+    </div>
+
+    <span class="sub-label" style="margin-top:0">Añadir publicación nueva</span>
+    <p>Con sesión iniciada aparece el botón <strong>"+"</strong> en la cabecera. Abre el formulario completo: proyecto, fecha, título, copy, media, tipo, canal, estado y campaña de Ads.</p>
+
+    <span class="sub-label">Editar una publicación existente</span>
+    <p>Haz clic en cualquier publicación para abrir su detalle. Con sesión iniciada aparece el icono de lápiz ✏. Al pulsarlo se abre el modal de edición con todos los campos.</p>
+
+    <ul class="item-list">
+      <li><strong>Proyecto</strong> — seleccionable de la lista de proyectos registrados</li>
+      <li><strong>Fecha, título y copy</strong> — texto libre</li>
+      <li><strong>Tipo</strong> — imagen, vídeo, reel, carrusel, historia o texto</li>
+      <li><strong>Canal</strong> — Instagram, TikTok, LinkedIn, Facebook, Web u Otros</li>
+      <li><strong>Estado</strong> — desplegable con los estados disponibles</li>
+      <li><strong>Imagen / Vídeo</strong> — URL directa o Drive. Para carruseles, varias URLs separadas por coma</li>
+      <li><strong>Campaña de Ads</strong> — activa/desactiva con campo de presupuesto en €</li>
+    </ul>
+
+    <div class="callout" style="margin-top:16px">
+      <strong>Sincronización:</strong> Los cambios se guardan directamente en Google Sheets. El calendario se actualiza en pocos segundos.
+    </div>
+  </div>
+
+  <div class="section" id="gestionar-peticiones">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <h2>Gestionar peticiones</h2>
+    </div>
+
+    <p>Desde la pestaña <strong>Peticiones</strong>, los administradores tienen control total sobre las solicitudes del equipo:</p>
+
+    <ul class="item-list" style="margin-top: 10px; margin-bottom: 16px;">
+      <li><strong>Ver todas las peticiones</strong> con su estado actual e información del solicitante</li>
+      <li><strong>Editar cualquier campo</strong> — estado, proyecto, canal, fecha, título, descripción, link de contenido, tipo, prioridad y campaña de Ads. También puedes adjuntar o reemplazar el archivo en ese momento.</li>
+      <li><strong>Cambiar el estado</strong> — Pendiente → Aprobado / Rechazado / En proceso</li>
+      <li><strong>Aprobar</strong> — la petición aparece automáticamente en el calendario</li>
+      <li><strong>Eliminar</strong> — abre un modal de confirmación. La fila no se borra definitivamente: se mueve a la hoja <em>ARCHIVO</em> del Google Sheets por si hace falta recuperarla</li>
+    </ul>
+
+    <span class="sub-label">Trazabilidad de cambios</span>
+    <p>Cada vez que alguien edita o borra una petición, CALENDAPP registra quién lo hizo y cuándo:</p>
+    <ul class="item-list" style="margin-top: 6px;">
+      <li>Al editar, el campo <em>modificado_por</em> se escribe en la hoja con el formato <code>Nombre · DD/MM/AA HH:MM</code></li>
+      <li>Los miembros del equipo (sin acceso de admin) deben identificarse con su nombre antes de poder editar o borrar. Ese nombre se guarda en el navegador para la próxima vez.</li>
+      <li>Los administradores no necesitan nombre porque la sesión ya identifica su acceso</li>
+    </ul>
+
+    <div class="callout tip" style="margin-top:16px">
+      <strong>Aprobación:</strong> Una petición aprobada queda visible en el calendario para todo el equipo junto al resto de publicaciones del mes.
+    </div>
+  </div>
+
+  <div class="section" id="tipos">
+    <div class="section-head">
+      <div class="section-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <h2>Tipos de contenido</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tipo</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>imagen</td><td>Foto individual con preview en el feed visual</td></tr>
+          <tr><td>video</td><td>Vídeo con reproductor (YouTube o Drive)</td></tr>
+          <tr><td>reel</td><td>Reel corto reproducible directamente en el grid</td></tr>
+          <tr><td>carrusel</td><td>Secuencia deslizable — pon las URLs de imágenes separadas por coma en el campo media</td></tr>
+          <tr><td>historia</td><td>Story vertical. El avatar del proyecto muestra aro de gradiente y abre el visor de historias</td></tr>
+          <tr><td>texto</td><td>Post solo de texto, sin archivo multimedia</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════ FAQ ════ -->
+  <div class="faq-section" id="faq-section">
+    <h2>Preguntas frecuentes</h2>
+
+    <details>
+      <summary>Los datos no se actualizan aunque haya cambiado la hoja</summary>
+      <div class="faq-body">Google Sheets almacena en caché el CSV publicado varios minutos. CALENDAPP sincroniza cada 60 segundos. Si necesitas ver cambios urgentes, espera 2–3 minutos y recarga. Las ediciones hechas desde CALENDAPP fuerzan una recarga especial para saltarse este retraso.</div>
+    </details>
+
+    <details>
+      <summary>Una publicación no aparece en el calendario</summary>
+      <div class="faq-body">Comprueba que la fila tiene valores en <em>proyecto</em> y <em>fecha</em> — son los únicos campos obligatorios. Verifica que el formato de la fecha es correcto (<code>DD/MM/YYYY</code> o <code>YYYY-MM-DD</code>) y que la hoja está publicada en la web en formato CSV.</div>
+    </details>
+
+    <details>
+      <summary>El carrusel muestra solo la primera imagen</summary>
+      <div class="faq-body">Asegúrate de que las URLs en el campo <em>Imagen / Vídeo</em> están separadas únicamente por comas, sin espacios extra entre ellas.</div>
+    </details>
+
+    <details>
+      <summary>Los colores de los proyectos no coinciden</summary>
+      <div class="faq-body">CALENDAPP asigna colores fijos según el nombre exacto del proyecto. Si el nombre en la hoja difiere del registrado (mayúsculas, tildes, espacios extra), se usará un color genérico. Verifica que el nombre es idéntico en todas las filas.</div>
+    </details>
+
+    <details>
+      <summary>Las ediciones que hago no se guardan al recargar</summary>
+      <div class="faq-body">Indica que el Apps Script no está recibiendo correctamente la escritura en la hoja. Contacta con el equipo técnico para verificar que la configuración está activa y tiene los permisos necesarios.</div>
+    </details>
+
+    <details>
+      <summary>¿Puedo buscar publicaciones de meses anteriores?</summary>
+      <div class="faq-body">Sí. La barra de búsqueda filtra sobre todas las publicaciones de todos los meses. Escribe al menos 2 caracteres y se mostrarán resultados de cualquier fecha, ordenados cronológicamente.</div>
+    </details>
+
+    <details>
+      <summary>¿Cómo añado un nuevo proyecto?</summary>
+      <div class="faq-body">Basta con añadir una fila con el nombre del nuevo proyecto en la columna correspondiente — CALENDAPP lo detecta automáticamente. Si quieres un color específico en la paleta del grupo, el equipo técnico puede añadirlo al código.</div>
+    </details>
+
+    <details>
+      <summary>Adjunto un archivo pero no aparece en la petición</summary>
+      <div class="faq-body">El adjunto se sube a Google Drive a través del Apps Script. Si la subida falla (por timeout, permisos o tamaño), la petición se envía igualmente sin el archivo y no aparece ningún error visible. Verifica que el script está desplegado correctamente con permisos de Drive y que el archivo no supera los 50 MB. Como alternativa, sube el archivo a Drive manualmente y pega la URL en el campo <em>Link de contenido</em>.</div>
+    </details>
+
+    <details>
+      <summary>¿Dónde se guardan los archivos adjuntos?</summary>
+      <div class="faq-body">En una carpeta llamada <strong>"Calendapp Adjuntos"</strong> en el Google Drive asociado a la cuenta que ejecuta el Apps Script. Los archivos tienen acceso público por enlace (cualquiera con el link puede verlos). La URL se guarda en la columna <em>contenido</em> de la hoja PETICIONES.</div>
+    </details>
+
+    <details>
+      <summary>He borrado una petición por error, ¿puedo recuperarla?</summary>
+      <div class="faq-body">Sí. Las peticiones borradas no se eliminan: se mueven automáticamente a la hoja <strong>ARCHIVO</strong> del Google Sheets, con la fecha y hora del borrado en la primera columna. Un administrador puede copiar la fila de vuelta a PETICIONES si es necesario.</div>
+    </details>
+
+    <details>
+      <summary>¿Para qué sirve el campo "Tu nombre" en las peticiones?</summary>
+      <div class="faq-body">Permite saber quién creó, editó o borró cada petición. Al enviar o modificar una petición, tu nombre queda registrado en la hoja (<em>solicitante</em> o <em>modificado_por</em>). El navegador lo recuerda automáticamente para que no tengas que escribirlo cada vez. Los administradores no necesitan rellenarlo porque su acceso ya queda identificado por la sesión.</div>
+    </details>
+  </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer class="app-footer">
+  <div class="footer-inner">
+    <div class="footer-left">
+      <a href="https://www.elchandriogroup.com/calendapp/index.html" style="display:flex;align-items:center;text-decoration:none"><img src="./img/logo_calendapp.png" alt="CalendApp" /></a>
+      <div class="footer-sep"></div>
+      <span class="footer-copy">El Chandrio Group © 2026</span>
+    </div>
+    <div class="footer-links">
+      <a href="#peticiones">Peticiones</a>
+      <div class="footer-dot"></div>
+      <a href="#admin">Administración</a>
+      <div class="footer-dot"></div>
+      <a href="#faq-section">FAQ</a>
+      <div class="footer-dot"></div>
+      <a href="https://www.elchandriogroup.com/calendapp/index.html">Volver a la app</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Resaltar la pill activa según sección visible
+const anchors = [
+  { ids: ['equipo','peticiones','adjuntos','modo-demo','ver-calendario','filtros'], tab: 'tab-equipo' },
+  { ids: ['admin','admin-acceso','editar','gestionar-peticiones','tipos'], tab: 'tab-admin' },
+  { ids: ['faq-section'], tab: 'tab-faq' },
+]
+function updatePill() {
+  const y = window.scrollY + 100
+  let active = 'tab-equipo'
+  for (const group of anchors) {
+    for (const id of group.ids) {
+      const el = document.getElementById(id)
+      if (el && el.offsetTop <= y) active = group.tab
+    }
+  }
+  document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'))
+  const el = document.getElementById(active)
+  if (el) el.classList.add('active')
+}
+window.addEventListener('scroll', updatePill, { passive: true })
+updatePill()
+</script>
+</body>
+</html>
