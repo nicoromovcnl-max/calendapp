@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { MONTHS, MONTHS_SHORT, REQ_ESTADOS, thumbOf } from '../lib/data.js'
+import { prettyProject } from '../lib/projects.js'
 import { ChannelTile, DemoBanner, Icon, Kpis, PageHead, StatusBadge, Thumb, firstMedia, tipoIcon } from './ui.jsx'
 
 const PERIODS = [['month', 'Este mes'], ['prev', 'Mes anterior'], ['90', '90 días'], ['year', 'Este año'], ['all', 'Todo']]
@@ -69,7 +70,7 @@ export default function Stats() {
   const app = useApp()
   const [period, setPeriod] = useState('month')
   const [from, to, bin] = periodRange(period)
-  const pubs = useMemo(() => app.publications.filter((p) => p.fecha && app.matchesAccount(p.proyecto) && (!from || (p.fecha >= from && p.fecha <= to))), [app.publications, app.matchesAccount, from, to])
+  const pubs = useMemo(() => app.publications.filter((p) => p.fecha && app.pubMatchesAccount(p) && (!from || (p.fecha >= from && p.fecha <= to))), [app.publications, app.pubMatchesAccount, from, to])
   const est = (e) => pubs.filter((p) => (p.estado || '').toLowerCase() === e).length
 
   const points = useMemo(() => {
@@ -120,7 +121,7 @@ export default function Stats() {
             return (
               <button key={name} className="list-row" onClick={() => { app.setProjectsFilter([name]); app.setView('calendar') }}>
                 <Thumb media={latest && firstMedia(latest)} tipo="imagen" project={name} size="sm" />
-                <div className="grow"><b className="trunc list-title" style={{ textTransform: 'capitalize' }}>{name.toLowerCase()}</b><small>{n} publicaci{n === 1 ? 'ón' : 'ones'}</small></div>
+                <div className="grow"><b className="trunc list-title">{prettyProject(name)}</b><small>{n} publicaci{n === 1 ? 'ón' : 'ones'}</small></div>
                 <Icon name="right" size={14} className="muted" />
               </button>
             )

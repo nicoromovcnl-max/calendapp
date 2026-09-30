@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { initials, isVideoFile, isVideoUrl, projectColor, splitMedia, thumbOf } from '../lib/data.js'
 import { useApp } from '../store.jsx'
+import { ACCOUNT_STATUS } from '../lib/social.jsx'
+import { destLabel } from '../lib/destinations.js'
 
 // ── Iconos ────────────────────────────────────────────────────────────────
 const P = {
@@ -98,9 +100,9 @@ export function ChannelTile({ canal, size = 24, onMedia }) {
 }
 
 // ── Estados ───────────────────────────────────────────────────────────────
-const PUB_TONE = { publicado: '', programado: 'green', borrador: 'no-dot', cancelado: 'red', 'en edición': 'amber', aprobado: 'green' }
+const PUB_TONE = { publicado: '', programado: 'green', borrador: 'no-dot', cancelado: 'red', 'en edición': 'amber', aprobado: 'green', error: 'red', publicando: 'amber' }
 const REQ_TONE = { pendiente: 'amber', 'en revisión': 'blue', aprobado: 'green', rechazado: 'red' }
-const STATE_DOT = { publicado: '#8b918d', programado: '#18a879', borrador: '#c3c8c4', cancelado: '#c23a3a', 'en edición': '#d18a1f', aprobado: '#18a879' }
+const STATE_DOT = { publicado: '#8b918d', programado: '#18a879', borrador: '#c3c8c4', cancelado: '#c23a3a', 'en edición': '#d18a1f', aprobado: '#18a879', error: '#c23a3a', publicando: '#d18a1f' }
 export const stateDot = (estado) => STATE_DOT[(estado || '').toLowerCase().trim()] || '#c3c8c4'
 
 export function StatusBadge({ estado, kind = 'pub', glass }) {
@@ -266,4 +268,18 @@ export function DemoBanner() {
   return (
     <div className="banner demo"><Icon name="flame" size={15} /><span className="grow"><b>Modo demo</b> · datos de ejemplo, no se guarda nada en la hoja.</span><button onClick={app.exitDemo}>Salir</button></div>
   )
+}
+
+// ── Cuentas y destinos ────────────────────────────────────────────────────
+export function AccountStatusBadge({ status }) {
+  const st = ACCOUNT_STATUS[status] || ACCOUNT_STATUS.pending
+  return <span className={`badge ${st.tone || 'no-dot'}`}>{st.label}</span>
+}
+
+const ACCOUNT_DOT = { connected: 'var(--accent)', demo: 'var(--blue)', expired: '#d18a1f', error: 'var(--red)' }
+export const accountDot = (status) => ACCOUNT_DOT[status] || 'var(--ink-4)'
+
+// Estado de un destino (una cuenta concreta) dentro de una publicación.
+export function DestBadge({ dest, glass }) {
+  return <StatusBadge estado={destLabel(dest.status)} glass={glass} />
 }

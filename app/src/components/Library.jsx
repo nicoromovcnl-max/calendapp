@@ -12,9 +12,9 @@ export default function Library() {
   const [kind, setKind] = useState('')
   const assets = useMemo(() => {
     const out = []
-    app.sortedPublications.filter((p) => app.matchesAccount(p.proyecto)).forEach((p) => splitMedia(p.media).forEach((m, i) => out.push({ key: `${p.id}-${i}`, url: m, pub: p })))
+    app.sortedPublications.filter((p) => app.pubMatchesAccount(p)).forEach((p) => splitMedia(p.media).forEach((m, i) => out.push({ key: `${p.id}-${i}`, url: m, pub: p })))
     return out.reverse()
-  }, [app.sortedPublications, app.matchesAccount])
+  }, [app.sortedPublications, app.pubMatchesAccount])
   const t = q.trim().toLowerCase()
   const rows = assets.filter((a) => (!project || a.pub.proyecto === project) && (!kind || (kind === 'video') === isVideo(a.url)) && (!t || (a.pub.titulo || '').toLowerCase().includes(t)))
   return (

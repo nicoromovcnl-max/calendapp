@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { projectColor } from '../lib/data.js'
-import { ChannelTile, Icon, useOutside } from './ui.jsx'
+import { prettyProject } from '../lib/projects.js'
+import { ChannelTile, Icon, accountDot, useOutside } from './ui.jsx'
+import { ACCOUNT_STATUS } from '../lib/social.jsx'
 import logo from '../assets/logo_calendapp.png'
 import favicon from '../assets/favicon.jpg'
 
@@ -17,45 +19,34 @@ function NavItem({ icon, label, active, onClick, count }) {
   )
 }
 
-// Selector de cuenta: la lista sale de app.accounts (derivada de datos + cuentas añadidas).
+// Selector de cuenta activa: la lista sale de app.accounts (conexiones del servidor).
 export function AccountSwitcher({ up = false }) {
   const app = useApp()
   const [open, setOpen] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const [handle, setHandle] = useState('')
   const ref = useRef(null)
-  useOutside(ref, () => { setOpen(false); setAdding(false) })
+  useOutside(ref, () => setOpen(false))
   const acc = app.account
-  const submit = (e) => {
-    e.preventDefault()
-    if (app.addAccount(handle)) { setHandle(''); setAdding(false); setOpen(false) }
-  }
   return (
     <div className="account-switch" ref={ref}>
       <button className="acct-btn" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open} title={acc ? `@${acc.handle}` : 'Todas las cuentas'}>
         {acc ? <ChannelTile canal={acc.canal} size={28} /> : <span className="avatar" style={{ width: 28, height: 28, background: 'var(--surface-3)', color: 'var(--ink-2)' }}><Icon name="users" size={14} /></span>}
-        <span className="acct-meta"><b className="trunc" style={{ display: 'block' }}>{acc ? `@${acc.handle}` : 'Todas las cuentas'}</b><span>{acc ? acc.canal : `${app.accounts.length} cuentas`}</span></span>
+        <span className="acct-meta"><span className="acct-kicker">Cuenta activa</span><b className="trunc" style={{ display: 'block' }}>{acc ? `@${acc.handle}` : 'Todas las cuentas'}</b></span>
         <Icon name="down" size={14} className="acct-chev" />
       </button>
       {open && (
         <div className={`popover ${up ? 'up' : ''}`} style={{ minWidth: 250, left: 0, right: 0 }} role="listbox">
-          <div className="pop-label">Cuenta activa</div>
           <button className={`pop-item ${!acc ? 'on' : ''}`} role="option" aria-selected={!acc} onClick={() => { app.setActiveAccount(null); setOpen(false) }}>
-            <Icon name="users" size={15} /> Todas las cuentas {!acc && <Icon name="check" size={14} className="acct-chev" style={{ marginLeft: 'auto' }} />}
+            <Icon name="users" size={15} /> Todas las cuentas {!acc && <Icon name="check" size={14} style={{ marginLeft: 'auto' }} />}
           </button>
           {app.accounts.map((a) => (
             <button key={a.id} className={`pop-item ${acc?.id === a.id ? 'on' : ''}`} role="option" aria-selected={acc?.id === a.id} onClick={() => { app.setActiveAccount(a.id); setOpen(false) }}>
               <ChannelTile canal={a.canal} size={20} /><span className="trunc">@{a.handle}</span>
-              {acc?.id === a.id && <Icon name="check" size={14} style={{ marginLeft: 'auto' }} />}
+              <i className="state-dot" style={{ '--dot': accountDot(a.status), marginLeft: 'auto' }} title={ACCOUNT_STATUS[a.status]?.label} />
+              {acc?.id === a.id && <Icon name="check" size={14} />}
             </button>
           ))}
           <div className="pop-sep" />
-          {adding ? (
-            <form onSubmit={submit} style={{ display: 'flex', gap: 6, padding: 4 }}>
-              <input className="input" autoFocus placeholder="@usuario" value={handle} onChange={(e) => setHandle(e.target.value)} aria-label="Usuario de la cuenta" />
-              <button className="btn btn-primary btn-icon" type="submit" aria-label="Añadir" disabled={!handle.trim()}><Icon name="check" size={15} /></button>
-            </form>
-          ) : <button className="pop-item" onClick={() => setAdding(true)}><Icon name="plus" size={15} /> Añadir cuenta</button>}
+          <button className="pop-item" onClick={() => { setOpen(false); app.goIntegrations() }}><Icon name="plus" size={15} /> Conectar otra cuenta</button>
         </div>
       )}
     </div>
@@ -125,7 +116,7 @@ export default function Sidebar() {
           {shown.map((p) => (
             <button key={p} className={`nav-item ${app.projectsFilter.includes(p) ? 'active' : ''}`} onClick={() => toggleProject(p)} title={p}>
               <span className="dot" style={{ background: projectColor(p).dot }} />
-              <span className="txt" style={{ textTransform: 'capitalize' }}>{p.toLowerCase()}</span>
+              <span className="txt">{prettyProject(p)}</span>
               {counts[p] > 0 && <span className="num">{counts[p]}</span>}
             </button>
           ))}

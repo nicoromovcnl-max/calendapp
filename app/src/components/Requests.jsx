@@ -22,7 +22,10 @@ function RequestPanel({ req, onClose, inModal }) {
   const linked = approved ? app.publications.find((p) => p.id === `approved-${req.id}` || (p.proyecto === req.proyecto && p.titulo === req.titulo)) : null
   const promo = (req.promocionado || '').toLowerCase().startsWith('s')
 
-  const createPublication = () => app.requireAuth(async () => { await app.changeRequestState(req, 'Aprobado') })
+  const createPublication = () => app.requireAuth(async () => {
+    const next = await app.changeRequestState(req, 'Aprobado')
+    app.openEditorForRequest(next)
+  })
   const goCalendar = () => {
     if (req.fecha) { app.setYear(req.fecha.getFullYear()); app.setMonth(req.fecha.getMonth()) }
     if (linked) app.setSelectedPub(linked)

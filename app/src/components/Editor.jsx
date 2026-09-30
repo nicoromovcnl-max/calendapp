@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import {
-  CHANNELS, INSTAGRAM_HANDLES, PUB_ESTADOS, TIPOS, readAsDataUrl, scriptUploadFile, splitMedia, thumbOf, toInputDate,
+  CHANNELS, PUB_ESTADOS, TIPOS, readAsDataUrl, scriptUploadFile, splitMedia, thumbOf, toInputDate,
 } from '../lib/data.js'
-import { ChannelTile, Cover, Icon, Modal, ProjectAvatar, tipoIcon } from './ui.jsx'
+import { combineDateTime, destLabel, hhmm, pubRef } from '../lib/destinations.js'
+import { AccountStatusBadge } from './ui.jsx'
+import { prettyProject } from '../lib/projects.js'
+import { ChannelTile, Cover, Icon, Modal, ProjectAvatar, StatusBadge, tipoIcon } from './ui.jsx'
 
 // ── Subida de archivos (misma lógica que el original) ─────────────────────
 export function useUploader(scriptUrl, onUrl) {
@@ -72,10 +75,10 @@ export function MediaField({ value, onChange, scriptUrl }) {
 }
 
 // ── Previsualización ──────────────────────────────────────────────────────
-export function PostPreview({ form }) {
+export function PostPreview({ form, accountHandle }) {
   const app = useApp()
   const canal = (form.canal || 'Instagram').toLowerCase()
-  const handle = app.accountOf(form.proyecto)?.handle || INSTAGRAM_HANDLES[form.proyecto] || (form.proyecto || 'tu_proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '')
+  const handle = accountHandle || app.accountOf(form.proyecto)?.handle || (form.proyecto || 'tu_proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '')
   const first = splitMedia(form.media)[0]
   const n = splitMedia(form.media).length
   const copy = form.copy || ''
@@ -121,6 +124,41 @@ export function PostPreview({ form }) {
   )
 }
 
+// ── Destinos: cuentas donde se publicará ──────────────────────────────────
+function DestinationPicker({ app, project, selected, setSelected, existing, disabledReason }) {
+  const accounts = useMemo(() => {
+    const own = app.accounts.filter((a) => a.proyecto === project)
+    return [...own, ...app.accounts.filter((a) => a.proyecto !== project)]
+  }, [app.accounts, project])
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  return (
+    <div className="field">
+      <span className="label">Cuentas de destino</span>
+      {disabledReason && <div className="banner err" style={{ margin: 0 }}><Icon name="info" size={15} /><span className="grow">{disabledReason}</span></div>}
+      <div className="dest-list">
+        {accounts.map((a) => {
+          const ex = existing.get(a.id)
+          const locked = ex && ex.status === 'published'
+          const usable = app.canPublish(a) || a.status === 'demo'
+          const off = !!disabledReason || (!usable && !ex)
+          return (
+            <label key={a.id} className={`dest-row ${selected.has(a.id) ? 'on' : ''} ${off || locked ? 'off' : ''}`}>
+              <input type="checkbox" className="check" checked={selected.has(a.id)} disabled={off || locked} onChange={() => toggle(a.id)} />
+              <ChannelTile canal={a.canal} size={22} />
+              <span className="grow"><b>Instagram · @{a.handle}</b><small>{a.proyecto ? prettyProject(a.proyecto) : 'Sin proyecto asociado'}</small></span>
+              {ex ? <StatusBadge estado={destLabel(ex.status)} /> : <AccountStatusBadge status={a.status} />}
+            </label>
+          )
+        })}
+        <div className="dest-row off"><input type="checkbox" className="check" disabled /><ChannelTile canal="Facebook" size={22} /><span className="grow"><b>Facebook</b><small>Sin integración disponible</small></span></div>
+      </div>
+      {!disabledReason && accounts.every((a) => !(app.canPublish(a) || a.status === 'demo')) && (
+        <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => { app.setEditing(null); app.goIntegrations() }}><Icon name="plus" size={14} /> Conectar una cuenta</button>
+      )}
+    </div>
+  )
+}
+
 // ── Editor ────────────────────────────────────────────────────────────────
 const EMPTY = { proyecto: '', fecha: '', titulo: '', copy: '', media: '', tipo: 'imagen', canal: 'Instagram', estado: 'Programado', url_post: '', promocionado: false, presupuesto: '' }
 
@@ -128,30 +166,87 @@ export default function Editor() {
   const app = useApp()
   const pub = app.editing === 'new' ? null : app.editing
   const isNew = !pub
+  const existing = useMemo(() => new Map((pub?.destinos || []).map((d) => [d.accountId, d])), [pub])
   const [form, setForm] = useState(() => isNew
-    ? { ...EMPTY, proyecto: app.projectsFilter.length === 1 ? app.projectsFilter[0] : '', fecha: toInputDate(app.newPubDate || new Date()) }
+    ? { ...EMPTY, proyecto: app.projectsFilter.length === 1 ? app.projectsFilter[0] : (app.account?.proyecto || ''), fecha: toInputDate(app.newPubDate || new Date()) }
     : {
       proyecto: pub.proyecto || '', fecha: toInputDate(pub.fecha), titulo: pub.titulo || '', copy: pub.copy || '', media: pub.media || '',
       tipo: pub.tipo || 'imagen', canal: pub.canal || '', estado: pub.estado || '', url_post: pub.url_post || '',
       promocionado: (pub.promocionado || 'No').toLowerCase().startsWith('s'), presupuesto: pub.presupuesto || '',
     })
+  const [selected, setSelected] = useState(() => new Set((pub?.destinos || []).filter((d) => d.status !== 'cancelled').map((d) => d.accountId)))
+  const [touched, setTouched] = useState(false)
+  const [hora, setHora] = useState(() => {
+    const d = (pub?.destinos || []).find((x) => x.scheduledAt)
+    return d ? hhmm(d.scheduledAt) : ''
+  })
   const [saving, setSaving] = useState(false)
+  const [problem, setProblem] = useState('')
+  const previousRef = useMemo(() => (pub ? pubRef(pub) : null), [pub])
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const setMedia = useCallback((v) => setForm((f) => ({ ...f, media: v })), [])
   const close = () => { app.setEditing(null); app.setNewPubDate(null) }
   const valid = form.proyecto && form.fecha && form.titulo.trim()
   const canalList = [...new Set([...CHANNELS.filter((x) => x !== 'Otros'), ...(form.canal && !CHANNELS.includes(form.canal) ? [form.canal] : [])])]
 
-  const save = async (estado) => {
-    if (!valid || saving) return
-    setSaving(true)
-    const next = estado ?? form.estado
-    if (isNew) await app.createPublication({ ...form, estado: next, promocionado: undefined, url_post: undefined })
-    else app.savePublication({ ...pub, ...form, estado: next, fecha: form.fecha ? new Date(`${form.fecha}T12:00:00`) : pub.fecha, promocionado: form.promocionado ? 'Sí' : 'No' })
-    setSaving(false)
+  // Sin selección manual, los destinos por defecto son las cuentas del proyecto elegido.
+  useEffect(() => {
+    if (touched || (pub?.destinos?.length)) return
+    setSelected(new Set(app.accounts.filter((a) => a.proyecto === form.proyecto && (app.canPublish(a) || a.status === 'demo')).map((a) => a.id)))
+  }, [form.proyecto, touched, pub, app.accounts, app.canPublish])
+
+  const backend = app.social.backend
+  const disabledReason = form.canal !== 'Instagram' ? 'Este canal solo se registra en el calendario.'
+    : app.demo ? null
+      : backend.state !== 'online' ? 'El servidor de CalendApp no está disponible: los destinos no se pueden guardar.'
+        : !backend.authenticated ? 'Inicia sesión en el servidor (Ajustes → Integraciones) para elegir cuentas y programar.'
+          : null
+  const pickedAccounts = [...selected].map((id) => app.accountById(id)).filter(Boolean)
+  const usesDestinations = !disabledReason && pickedAccounts.length > 0
+  const firstHandle = pickedAccounts[0]?.handle
+
+  const validateDestinations = (scheduling, now) => {
+    if (!usesDestinations) return ''
+    if (form.tipo === 'texto' || splitMedia(form.media).length === 0) return 'Instagram necesita una imagen o un vídeo para publicar.'
+    if (scheduling) {
+      if (!hora) return 'Indica la hora para programar la publicación.'
+      const when = combineDateTime(new Date(`${form.fecha}T12:00:00`), hora)
+      if (!when) return 'La hora no es válida.'
+      if (!now && !app.demo && when <= new Date()) return 'La hora programada ya ha pasado. Cámbiala o usa “Publicar ahora”.'
+    }
+    return ''
   }
 
-  const acc = app.accountOf(form.proyecto)
+  const buildDests = (estado, scheduling) => {
+    if (!usesDestinations) return undefined
+    const when = scheduling ? combineDateTime(new Date(`${form.fecha}T12:00:00`), hora) : null
+    return [...selected].map((accountId) => {
+      const ex = existing.get(accountId)
+      if (ex && ex.status === 'published') return { accountId, status: 'published', scheduledAt: ex.scheduledAt }
+      return { accountId, status: scheduling ? 'scheduled' : 'draft', scheduledAt: when }
+    }).filter((d) => d.status !== 'published')
+  }
+
+  const save = async (estadoOverride, { now = false } = {}) => {
+    if (!valid || saving) return
+    const estado = estadoOverride ?? form.estado
+    const scheduling = !now && estado === 'Programado'
+    const err = validateDestinations(scheduling, now)
+    if (err) { setProblem(err); return }
+    setProblem('')
+    setSaving(true)
+    const dests = buildDests(estado, scheduling)
+    const publishAfter = now ? [...selected].filter((id) => existing.get(id)?.status !== 'published') : undefined
+    try {
+      if (isNew) await app.createPublication({ ...form, estado, hora, promocionado: undefined, url_post: undefined }, { dests, publishAfter })
+      else {
+        await app.savePublication({ ...pub, ...form, estado, fecha: form.fecha ? new Date(`${form.fecha}T12:00:00`) : pub.fecha, promocionado: form.promocionado ? 'Sí' : 'No' }, { dests, previousRef, publishAfter })
+      }
+    } finally { setSaving(false) }
+  }
+
+  const canPublishNow = usesDestinations && !app.demo && pickedAccounts.some((a) => app.canPublish(a) && existing.get(a.id)?.status !== 'published')
+  const busyLabel = saving ? 'Guardando…' : null
 
   return (
     <Modal onClose={close}>
@@ -162,29 +257,39 @@ export default function Editor() {
         </div>
         <div className="page-actions">
           <button className="btn btn-ghost" onClick={close}>Cancelar</button>
+          {canPublishNow && <button className="btn btn-accent" disabled={!valid || saving} onClick={() => save(undefined, { now: true })}><Icon name="send" size={14} /> Publicar ahora</button>}
           {isNew ? (
             <>
-              <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>Guardar borrador</button>
-              <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save('Programado')}>Programar publicación</button>
+              <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>{busyLabel || 'Guardar borrador'}</button>
+              <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save('Programado')}>{busyLabel || 'Programar publicación'}</button>
             </>
-          ) : <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save()}>Guardar cambios</button>}
+          ) : <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save()}>{busyLabel || 'Guardar cambios'}</button>}
         </div>
       </div>
 
       <div className="dialog-body">
+        {problem && <div className="banner err"><Icon name="info" size={15} /><span className="grow">{problem}</span></div>}
         <div className="editor-grid">
           <div className="form-card">
             <div className="form-section">
-              <div className="field">
-                <span className="label">Canal</span>
-                <div className="channel-tabs">
-                  {canalList.map((ch) => (
-                    <button type="button" key={ch} className={`channel-tab ${form.canal === ch ? 'on' : ''}`} aria-pressed={form.canal === ch} onClick={() => set('canal', form.canal === ch ? '' : ch)}>
-                      <ChannelTile canal={ch} size={20} />{ch}
-                    </button>
-                  ))}
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="e-proyecto">Proyecto *</label>
+                  <select id="e-proyecto" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
+                    <option value="">Selecciona…</option>
+                    {[...new Set([...app.projectNames, form.proyecto].filter(Boolean))].map((p) => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="e-canal">Canal</label>
+                  <select id="e-canal" className="select" value={form.canal} onChange={(e) => set('canal', e.target.value)}>
+                    <option value="">Sin canal</option>
+                    {canalList.map((c) => <option key={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
+              <DestinationPicker app={app} project={form.proyecto} selected={selected} existing={existing} disabledReason={disabledReason}
+                setSelected={(fn) => { setTouched(true); setSelected(fn) }} />
             </div>
 
             <div className="form-section">
@@ -209,14 +314,8 @@ export default function Editor() {
 
             <div className="form-section">
               <div className="field-row">
-                <div className="field">
-                  <label htmlFor="e-proyecto">Proyecto *</label>
-                  <select id="e-proyecto" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
-                    <option value="">Selecciona…</option>
-                    {[...new Set([...app.projectNames, form.proyecto].filter(Boolean))].sort().map((p) => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
                 <div className="field"><label htmlFor="e-fecha">Fecha *</label><input id="e-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
+                <div className="field"><label htmlFor="e-hora">Hora de publicación</label><input id="e-hora" type="time" className="input" value={hora} disabled={!usesDestinations} onChange={(e) => setHora(e.target.value)} /></div>
               </div>
               <div className="field-row">
                 <div className="field"><label htmlFor="e-estado">Estado</label>
@@ -226,6 +325,7 @@ export default function Editor() {
                 </div>
                 {!isNew && <div className="field"><label htmlFor="e-url">URL de la publicación</label><input id="e-url" className="input" value={form.url_post} onChange={(e) => set('url_post', e.target.value)} placeholder="https://…" /></div>}
               </div>
+              {usesDestinations && <p className="muted" style={{ margin: 0, fontSize: 12 }}>La hora se guarda en el servidor para programar cada destino ({Intl.DateTimeFormat().resolvedOptions().timeZone}). La hoja no guarda horas.</p>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button type="button" className={`switch ${form.promocionado ? 'on' : ''}`} onClick={() => set('promocionado', !form.promocionado)} role="switch" aria-checked={form.promocionado} aria-label="Campaña de Ads" />
                 <div style={{ flex: 1 }}><b>Campaña de Ads</b><div className="muted" style={{ fontSize: 12 }}>La publicación se promociona con presupuesto</div></div>
@@ -237,9 +337,9 @@ export default function Editor() {
           <div className="preview-stage">
             <div className="preview-head">
               <b>Vista previa</b>
-              <span className="who">{form.canal && <ChannelTile canal={form.canal} size={18} />}{form.canal || 'Sin canal'}{acc && ` · @${acc.handle}`}</span>
+              <span className="who">{form.canal && <ChannelTile canal={form.canal} size={18} />}{form.canal || 'Sin canal'}{firstHandle && ` · @${firstHandle}${pickedAccounts.length > 1 ? ` +${pickedAccounts.length - 1}` : ''}`}</span>
             </div>
-            <PostPreview form={form} />
+            <PostPreview form={form} accountHandle={firstHandle} />
           </div>
         </div>
       </div>

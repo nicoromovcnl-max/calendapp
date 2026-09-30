@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
-import { PUBLICATIONS_CSV, REQUESTS_CSV, SCRIPT_URL, fmtShort, isPendingRequest, splitMedia, timeAgo } from '../lib/data.js'
+import { PUBLICATIONS_CSV, REQUESTS_CSV, SCRIPT_URL, fmtFull, fmtShort, isPendingRequest, splitMedia, timeAgo } from '../lib/data.js'
 import { lsSet } from '../lib/storage.js'
-import { ChannelTile, DemoBanner, Icon, PageHead, ProjectAvatar, StatusBadge, Thumb } from './ui.jsx'
+import { prettyProject } from '../lib/projects.js'
+import { AccountStatusBadge, ChannelTile, DemoBanner, Icon, Menu, PageHead, ProjectAvatar, StatusBadge, Thumb } from './ui.jsx'
 
 const TABS = [['cuenta', 'Cuenta'], ['equipo', 'Equipo'], ['proyectos', 'Proyectos'], ['integraciones', 'Integraciones'], ['notificaciones', 'Notificaciones']]
 const NAME_KEY = 'pubcal_solicitante'
@@ -25,20 +26,121 @@ const Row = ({ icon, title, sub, children }) => (
   </div>
 )
 
+// ── Servidor de CalendApp (OAuth, cuentas y publicación) ──────────────────
+function ServerGroup() {
+  const app = useApp()
+  const { backend } = app.social
+  const [pw, setPw] = useState('')
+  const [err, setErr] = useState('')
+  const cfg = backend.configured || {}
+  const login = async (e) => {
+    e.preventDefault(); setErr('')
+    try { await app.social.login(pw); setPw('') } catch (x) { setErr(x.message) }
+  }
+  const flags = [
+    ['meta_app', 'Aplicación de Meta (ID y secreto)'], ['redirect_uri', 'URL de retorno OAuth'], ['crypto', 'Clave de cifrado de tokens'], ['admin', 'Contraseña de administración'],
+  ]
+  return (
+    <Group title="Servidor de CalendApp" sub="Guarda las cuentas conectadas, cifra los tokens y programa las publicaciones. Los tokens nunca llegan al navegador.">
+      <Row icon={<div className="integration-icon" style={{ background: 'var(--ink)' }}><Icon name="code" size={19} /></div>} title="Backend"
+        sub={backend.state === 'online' ? `Disponible${backend.version ? ` · v${backend.version}` : ''}` : backend.state === 'offline' ? 'No disponible en esta dirección' : 'Comprobando…'}>
+        <span className={`badge ${backend.state === 'online' ? 'green' : backend.state === 'offline' ? 'red' : 'no-dot'}`}>{backend.state === 'online' ? 'Conectado' : backend.state === 'offline' ? 'Sin conexión' : 'Comprobando'}</span>
+        <button className="btn btn-sm" onClick={app.social.bootstrap}><Icon name="refresh" size={13} /> Comprobar</button>
+      </Row>
+      {backend.state === 'online' && (
+        <div className="row-item" style={{ display: 'block' }}>
+          <div className="flag-grid">
+            {flags.map(([k, l]) => <span key={k} className={`flag ${cfg[k] ? 'ok' : 'bad'}`}><Icon name={cfg[k] ? 'check' : 'x'} size={13} />{l}</span>)}
+          </div>
+          {flags.some(([k]) => !cfg[k]) && <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>Faltan valores de configuración en el servidor (api/config.local.php o variables de entorno). Consulta api/README.md.</p>}
+        </div>
+      )}
+      {backend.state === 'online' && !backend.authenticated && (
+        <form className="row-item" onSubmit={login}>
+          <div className="grow field"><label htmlFor="srv-pw">Contraseña del servidor</label><input id="srv-pw" type="password" className="input" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Contraseña de administración" />
+            {err && <span style={{ color: 'var(--red)', fontSize: 12, fontWeight: 600 }}>{err}</span>}</div>
+          <button className="btn btn-primary" type="submit" style={{ alignSelf: 'flex-end' }} disabled={!pw}>Iniciar sesión</button>
+        </form>
+      )}
+      {backend.state === 'online' && backend.authenticated && (
+        <Row title="Sesión de administración activa" sub="Puedes conectar cuentas y programar publicaciones."><button className="btn btn-sm" onClick={app.social.logout}>Cerrar sesión</button></Row>
+      )}
+    </Group>
+  )
+}
+
+// ── Cuentas de Instagram ──────────────────────────────────────────────────
 function AddAccount() {
   const app = useApp()
-  const [v, setV] = useState('')
+  const [username, setUsername] = useState('')
+  const [projectId, setProjectId] = useState('')
   return (
-    <form className="row-item" onSubmit={(e) => { e.preventDefault(); if (app.addAccount(v)) setV('') }}>
-      <input className="input" placeholder="@usuario de la cuenta" aria-label="Usuario de la cuenta" value={v} onChange={(e) => setV(e.target.value)} />
-      <button className="btn" type="submit" disabled={!v.trim()}><Icon name="plus" size={14} /> Añadir cuenta</button>
+    <form className="row-item add-account" onSubmit={async (e) => { e.preventDefault(); try { await app.social.addAccount({ username, projectId }); setUsername(''); setProjectId(''); app.toast.success('Cuenta añadida. Conéctala para poder publicar.') } catch { /* el error ya se muestra */ } }}>
+      <input className="input" placeholder="@usuario" aria-label="Usuario de Instagram" value={username} onChange={(e) => setUsername(e.target.value)} />
+      <select className="select" aria-label="Proyecto" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+        <option value="">Proyecto…</option>{app.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      <button className="btn" type="submit" disabled={!username.trim()}><Icon name="plus" size={14} /> Añadir</button>
     </form>
+  )
+}
+
+function InstagramGroup() {
+  const app = useApp()
+  const { backend, busy } = app.social
+  const ready = app.demo ? false : backend.state === 'online' && backend.authenticated
+  const canConnect = ready && backend.configured?.meta_app && backend.configured?.redirect_uri && backend.configured?.crypto
+  const why = app.demo ? 'No disponible en modo demo.' : backend.state !== 'online' ? 'El servidor no está disponible.' : !backend.authenticated ? 'Inicia sesión en el servidor.' : !canConnect ? 'Falta configuración de Meta en el servidor.' : ''
+  const check = async (a) => {
+    try {
+      const r = await app.social.checkAccount(a.id)
+      app.toast.success(r.quota ? `@${a.handle}: ${r.quota.usage} de ${r.quota.total} publicaciones usadas en ${Math.round((r.quota.duration || 86400) / 3600)} h` : `@${a.handle}: cuenta verificada`)
+    } catch { /* el error ya se muestra */ }
+  }
+  return (
+    <Group title="Cuentas de Instagram" sub="Cada cuenta es una conexión independiente. CalendApp usa el inicio de sesión oficial de Instagram (cuentas profesionales: Business o Creator).">
+      {app.accounts.map((a) => {
+        const exp = a.tokenExpiresAt
+        return (
+          <div key={a.id} className="row-item account-row">
+            <ChannelTile canal={a.canal} size={38} />
+            <div className="grow">
+              <b>@{a.handle}</b>
+              <small>{a.metadata?.account_type ? `${a.metadata.account_type} · ` : ''}{a.status === 'connected' && exp ? `Token válido hasta ${fmtFull(exp)}` : a.lastError || (a.status === 'demo' ? 'Cuenta de ejemplo' : 'Sin credenciales guardadas')}</small>
+            </div>
+            <select className="select project-select" aria-label={`Proyecto de @${a.handle}`} value={a.projectId || ''} disabled={!ready || busy}
+              onChange={(e) => app.social.setAccountProject(a.id, e.target.value)}>
+              <option value="">Sin proyecto</option>{app.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <AccountStatusBadge status={a.status} />
+            {ready && (
+              <div className="row-actions">
+                {a.status !== 'connected' && <button className="btn btn-sm btn-primary" disabled={!canConnect || busy} onClick={() => app.social.connectInstagram(a.projectId)}>{a.status === 'pending' || a.status === 'disconnected' ? 'Conectar' : 'Reconectar'}</button>}
+                <Menu label={`Acciones de @${a.handle}`} items={[
+                  a.status === 'connected' && { label: 'Comprobar cuenta y cuota', icon: 'refresh', onClick: () => check(a) },
+                  a.status === 'connected' && { label: 'Renovar token', icon: 'lock', onClick: () => app.social.renewToken(a.id).catch(() => {}) },
+                  a.status !== 'pending' && a.status !== 'disconnected' && { label: 'Desconectar', icon: 'logout', onClick: () => app.social.disconnectAccount(a.id).catch(() => {}) },
+                  { label: 'Abrir perfil', icon: 'external', href: `https://www.instagram.com/${a.handle}/` },
+                  a.status !== 'connected' && { label: 'Eliminar cuenta', icon: 'trash', onClick: () => app.social.removeAccount(a.id).catch(() => {}) },
+                ]} />
+              </div>
+            )}
+          </div>
+        )
+      })}
+      <div className="row-item">
+        <div className="grow"><b>Conectar cuenta de Instagram</b><small>{why || 'Se abrirá el inicio de sesión de Instagram para autorizar la cuenta.'}</small></div>
+        <button className="btn btn-primary" disabled={!canConnect || busy} onClick={() => app.social.connectInstagram(null)}><Icon name="plus" size={14} /> Conectar cuenta</button>
+      </div>
+      {ready && <AddAccount />}
+    </Group>
   )
 }
 
 export default function Settings() {
   const app = useApp()
-  const [tab, setTab] = useState('cuenta')
+  const tab = app.settingsTab
+  const setTab = app.setSettingsTab
   const [name, setName] = useState(app.userName)
   const [saved, setSaved] = useState(false)
   const people = useMemo(() => {
@@ -84,21 +186,25 @@ export default function Settings() {
         )}
 
         {tab === 'proyectos' && (
-          <Group title="Proyectos" sub="Se crean al usarlos en una publicación o petición.">
-            {app.projectNames.map((p) => {
-              const acc = app.accountOf(p)
+          <Group title="Proyectos activos" sub="Cada proyecto puede tener una o varias cuentas sociales. La relación se edita en Integraciones.">
+            {app.projects.map((p) => {
+              const accs = app.accountsOf(p.name)
               return (
-                <Row key={p} icon={<ProjectAvatar name={p} />} title={<span style={{ textTransform: 'capitalize' }}>{p.toLowerCase()}</span>} sub={`${app.publications.filter((x) => x.proyecto === p).length} publicaciones · ${app.requests.filter((x) => x.proyecto === p).length} peticiones`}>
-                  {acc && <span className="badge no-dot">@{acc.handle}</span>}
+                <Row key={p.id} icon={<ProjectAvatar name={p.name} />} title={prettyProject(p.name)}
+                  sub={`${app.publications.filter((x) => x.proyecto === p.name).length} publicaciones · ${app.requests.filter((x) => x.proyecto === p.name).length} peticiones`}>
+                  {accs.length ? accs.map((a) => <span key={a.id} className="badge no-dot">@{a.handle}</span>) : <span className="muted" style={{ fontSize: 12.5 }}>Sin cuentas</span>}
                 </Row>
               )
             })}
+            {app.hiddenCount > 0 && !app.demo && <Row title={`${app.hiddenCount} registros de otros proyectos ocultos`} sub="Hay filas en la hoja de proyectos que ya no están activos. No se muestran en CalendApp ni se modifican en la hoja." />}
           </Group>
         )}
 
         {tab === 'integraciones' && (
           <>
-            <Group title="Datos" sub="La conexión está fijada y no puede modificarse desde la app. Solo un administrador puede cambiarla.">
+            <ServerGroup />
+            <InstagramGroup />
+            <Group title="Datos" sub="La conexión con Google Sheets está fijada y no puede modificarse desde la app.">
               <Row icon={<div className="integration-icon" style={{ background: '#0f9d58' }}><Icon name="sheet" size={19} /></div>} title="Google Sheets · Publicaciones" sub={app.lastSynced ? `Sincronizado ${timeAgo(app.lastSynced)}` : 'Pendiente de sincronizar'}>
                 <a className="btn btn-sm" href={PUBLICATIONS_CSV} target="_blank" rel="noreferrer">Abrir</a>
                 <button className="btn btn-sm" onClick={() => app.loadPublications(true)}><Icon name="refresh" size={13} className={app.loading ? 'spin' : ''} /> Sincronizar</button>
@@ -110,18 +216,10 @@ export default function Settings() {
                 <span className="badge green">Conectado</span>
               </Row>
             </Group>
-            <Group title="Cuentas" sub="Se usan para filtrar y etiquetar el contenido. Puedes añadir las que necesites.">
-              {app.accounts.map((a) => (
-                <Row key={a.id} icon={<ChannelTile canal={a.canal} size={38} />} title={`@${a.handle}`} sub={a.proyecto ? `Proyecto: ${a.proyecto.toLowerCase()}` : 'Sin proyecto asociado'}>
-                  <a className="btn btn-sm btn-ghost" href={`https://www.instagram.com/${a.handle}/`} target="_blank" rel="noreferrer">Abrir <Icon name="external" size={12} /></a>
-                </Row>
-              ))}
-              <AddAccount />
-            </Group>
             <section className="settings-group">
               <div className="panel"><details className="plain"><summary>Columnas de la hoja de publicaciones <Icon name="down" size={15} className="muted" /></summary>
                 <div className="table-wrap"><table className="table" style={{ pointerEvents: 'none' }}><thead><tr>{['Proyecto', 'Fecha', 'Título', 'Copy', 'Imagen/Video', 'Tipo'].map((c) => <th key={c}>{c}</th>)}</tr></thead>
-                  <tbody><tr>{['gastro league', '15/07/2026', 'Post verano', 'El copy…', 'https://…', 'imagen'].map((c) => <td key={c} className="muted" style={{ height: 48 }}>{c}</td>)}</tr></tbody></table></div>
+                  <tbody><tr>{['temeraria', '15/07/2026', 'Post verano', 'El copy…', 'https://…', 'imagen'].map((c) => <td key={c} className="muted" style={{ height: 48 }}>{c}</td>)}</tr></tbody></table></div>
               </details></div>
             </section>
           </>

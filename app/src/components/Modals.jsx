@@ -57,14 +57,14 @@ export function AuthModal() {
 }
 
 // ── Nueva petición ────────────────────────────────────────────────────────
-const NEW_REQ = { proyecto: '', proyectoOtros: '', fecha: '', titulo: '', info: '', contenido: '', solicitante: '', tipo: 'imagen', canal: '', prioridad: 'Media', promocionado: false, presupuesto: '' }
+const NEW_REQ = { proyecto: '', fecha: '', titulo: '', info: '', contenido: '', solicitante: '', tipo: 'imagen', canal: '', prioridad: 'Media', promocionado: false, presupuesto: '' }
 
 export function RequestForm() {
   const app = useApp()
   const [form, setForm] = useState({ ...NEW_REQ, solicitante: storedName() })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const proyecto = form.proyecto === '__otros__' ? form.proyectoOtros.trim() : form.proyecto
+  const proyecto = form.proyecto
   const valid = proyecto && form.fecha && form.titulo.trim() && form.solicitante.trim()
   const close = () => app.setRequestForm(false)
   const submit = async (e) => {
@@ -83,12 +83,11 @@ export function RequestForm() {
           <div className="field-row">
             <div className="field"><label htmlFor="r-proy">Proyecto *</label>
               <select id="r-proy" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
-                <option value="">Selecciona…</option>{app.projectNames.map((p) => <option key={p}>{p}</option>)}<option value="__otros__">Otros…</option>
+                <option value="">Selecciona…</option>{app.projectNames.map((p) => <option key={p}>{p}</option>)}
               </select>
             </div>
             <div className="field"><label htmlFor="r-fecha">Fecha deseada *</label><input id="r-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
           </div>
-          {form.proyecto === '__otros__' && <div className="field"><label>Nombre del proyecto *</label><input className="input" value={form.proyectoOtros} onChange={(e) => set('proyectoOtros', e.target.value)} /></div>}
           <div className="field"><label htmlFor="r-titulo">Título del post *</label><input id="r-titulo" className="input" value={form.titulo} onChange={(e) => set('titulo', e.target.value)} placeholder="¿Qué necesitas publicar?" /></div>
           <div className="field"><label htmlFor="r-info">Información adicional</label><textarea id="r-info" className="textarea" value={form.info} onChange={(e) => set('info', e.target.value)} placeholder="Tono, referencias, textos, horarios…" /></div>
           <div className="field"><span className="label">Tipo de contenido</span><ChoiceChips options={TIPOS} value={form.tipo} onChange={(v) => set('tipo', v)} icons={tipoIcon} /></div>
@@ -152,7 +151,7 @@ export function RequestEdit() {
       <Head title="Editar petición" sub={req.proyecto} onClose={close} />
       <div className="dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="field-row">
-          <div className="field"><label>Proyecto</label><select className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>{[...new Set([...app.projectNames, form.proyecto])].sort().map((p) => <option key={p}>{p}</option>)}</select></div>
+          <div className="field"><label>Proyecto</label><select className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>{[...new Set([...app.projectNames, form.proyecto])].map((p) => <option key={p}>{p}</option>)}</select></div>
           <div className="field"><label>Estado</label><select className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>{REQ_ESTADOS.map((s) => <option key={s}>{s}</option>)}</select></div>
         </div>
         <div className="field"><label>Título</label><input className="input" value={form.titulo} onChange={(e) => set('titulo', e.target.value)} /></div>

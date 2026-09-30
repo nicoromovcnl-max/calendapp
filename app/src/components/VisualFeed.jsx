@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { fmtLong, fmtShort, hashtagsOf, initials, projectColor, splitMedia } from '../lib/data.js'
+import { prettyProject } from '../lib/projects.js'
 import { ChannelTile, Cover, DemoBanner, Icon, Modal, PageHead, StatusBadge, stateDot, tipoIcon, useOutside } from './ui.jsx'
+import { aggregateStatus, destLabel } from '../lib/destinations.js'
 
 const TABS = [['posts', 'Posts', 'grid'], ['reels', 'Reels', 'video'], ['stories', 'Stories', 'story']]
 const isStory = (p) => (p.tipo || '').toLowerCase() === 'historia'
 const isReel = (p) => (p.tipo || '').toLowerCase() === 'reel'
+// Estado que se muestra en el perfil: el del destino de la cuenta activa, o el agregado.
+const stateLabel = (p, account) => {
+  if (!p.destinos?.length) return p.estado || ''
+  const d = account ? p.destinos.find((x) => x.accountId === account.id) : null
+  return destLabel(d ? d.status : aggregateStatus(p.destinos))
+}
 const inTab = (p, tab) => (tab === 'reels' ? isReel(p) : tab === 'stories' ? isStory(p) : !isStory(p))
 
 function useNarrow(q = '(max-width: 820px)') {
@@ -22,7 +30,7 @@ function useNarrow(q = '(max-width: 820px)') {
 const richest = (projects) => (projects.length ? [...projects].sort((a, b) => b[1] - a[1])[0][0] : null)
 
 // ── Teléfono: perfil con cuadrícula ───────────────────────────────────────
-function Tile({ pub, tab, selected, onSelect, onOpen }) {
+function Tile({ pub, tab, selected, onSelect, onOpen, label }) {
   const media = splitMedia(pub.media)
   const hasMedia = media.length > 0
   return (
@@ -33,13 +41,13 @@ function Tile({ pub, tab, selected, onSelect, onOpen }) {
         {isReel(pub) && <Icon name="video" size={15} />}
         {(pub.tipo || '') === 'carrusel' || media.length > 1 ? <Icon name="layers" size={15} /> : null}
       </span>
-      <i className="ig-dot state-dot" style={{ '--dot': stateDot(pub.estado) }} title={pub.estado || 'Sin estado'} />
+      <i className="ig-dot state-dot" style={{ '--dot': stateDot(label) }} title={label || 'Sin estado'} />
       <span className="ig-hover"><b>{pub.titulo || pub.proyecto}</b><small>{fmtShort(pub.fecha)}</small></span>
     </button>
   )
 }
 
-function Phone({ handle, label, projectName, counts, pubs, tab, setTab, selId, onSelect, onOpen, projects, onPickProject, hasStories, last, planned, emptyNote }) {
+function Phone({ handle, label, projectName, counts, pubs, tab, setTab, selId, onSelect, onOpen, projects, onPickProject, hasStories, last, planned, emptyNote, account }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useOutside(ref, () => setOpen(false))
@@ -59,7 +67,7 @@ function Phone({ handle, label, projectName, counts, pubs, tab, setTab, selId, o
             <div className="popover" role="listbox" style={{ left: 12, right: 12, top: 'calc(100% - 4px)' }}>
               {projects.map(([name, n]) => (
                 <button key={name} role="option" aria-selected={name === projectName} className={`pop-item ${name === projectName ? 'on' : ''}`} onClick={() => { onPickProject(name); setOpen(false) }}>
-                  <span className="dot" style={{ background: projectColor(name).dot }} /><span className="trunc" style={{ textTransform: 'capitalize' }}>{name.toLowerCase()}</span>
+                  <span className="dot" style={{ background: projectColor(name).dot }} /><span className="trunc">{prettyProject(name)}</span>
                   <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>{n}</span>
                 </button>
               ))}
@@ -79,7 +87,7 @@ function Phone({ handle, label, projectName, counts, pubs, tab, setTab, selId, o
             </div>
           </div>
           <div className="ig-bio">
-            <b style={{ textTransform: 'capitalize' }}>{projectName ? projectName.toLowerCase() : label}</b>
+            <b>{projectName ? prettyProject(projectName) : label}</b>
             {last && <span>Última publicación: {fmtShort(last)}</span>}
             <span>{planned === 0 ? emptyNote : `${planned} contenido${planned === 1 ? '' : 's'} planificado${planned === 1 ? '' : 's'} en tu calendario`}</span>
           </div>
@@ -93,7 +101,7 @@ function Phone({ handle, label, projectName, counts, pubs, tab, setTab, selId, o
           {list.length === 0 ? (
             <div className="ig-empty"><Icon name={tipoIcon[tab === 'reels' ? 'reel' : tab === 'stories' ? 'historia' : 'imagen']} size={26} /><b>Sin {tab === 'posts' ? 'posts' : tab === 'reels' ? 'reels' : 'historias'}</b><span>Nada planificado de este tipo en este perfil.</span></div>
           ) : (
-            <div className="ig-grid">{list.map((p) => <Tile key={p.id} pub={p} tab={tab} selected={selId === p.id} onSelect={onSelect} onOpen={onOpen} />)}</div>
+            <div className="ig-grid">{list.map((p) => <Tile key={p.id} pub={p} tab={tab} selected={selId === p.id} onSelect={onSelect} onOpen={onOpen} label={stateLabel(p, account)} />)}</div>
           )}
         </div>
         <div className="ig-nav" aria-hidden="true"><Icon name="grid" size={22} /><Icon name="search" size={22} /><Icon name="plus" size={22} /><Icon name="video" size={22} /><span className="ig-nav-avatar" style={{ background: c.bg, color: c.text }}>{projectName ? initials(projectName)[0] : '?'}</span></div>
@@ -103,7 +111,7 @@ function Phone({ handle, label, projectName, counts, pubs, tab, setTab, selId, o
 }
 
 // ── Detalle de la publicación seleccionada ────────────────────────────────
-function DetailPanel({ pub, onOpen, onEdit, onClose, sheet }) {
+function DetailPanel({ pub, onOpen, onEdit, onClose, sheet, account }) {
   const tags = hashtagsOf(pub.copy)
   return (
     <div className={sheet ? '' : 'panel feed-detail'}>
@@ -111,7 +119,7 @@ function DetailPanel({ pub, onOpen, onEdit, onClose, sheet }) {
       <div className="fd-body">
         <div className="fd-head">
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><StatusBadge estado={pub.estado} />{pub.canal && <span className="fd-canal"><ChannelTile canal={pub.canal} size={18} />{pub.canal}</span>}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><StatusBadge estado={stateLabel(pub, account)} />{pub.canal && <span className="fd-canal"><ChannelTile canal={pub.canal} size={18} />{pub.canal}</span>}</div>
             <h3>{pub.titulo || pub.proyecto}</h3>
             <p className="muted" style={{ margin: 0 }}>{fmtLong(pub.fecha)}{pub.hora ? ` · ${pub.hora}` : ''}</p>
           </div>
@@ -134,11 +142,7 @@ export default function VisualFeed() {
   const narrow = useNarrow()
   const { account, accounts } = app
 
-  const projects = useMemo(() => {
-    const m = new Map()
-    app.publications.forEach((p) => { if (p.proyecto) m.set(p.proyecto, (m.get(p.proyecto) || 0) + 1) })
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [app.publications])
+  const projects = useMemo(() => app.projectNames.map((name) => [name, app.publications.filter((p) => p.proyecto === name).length]), [app.projectNames, app.publications])
 
   const [project, setProject] = useState(() => (app.projectsFilter.length === 1 ? app.projectsFilter[0] : richest(projects)))
   const [tab, setTab] = useState('posts')
@@ -150,13 +154,13 @@ export default function VisualFeed() {
   const handle = account?.handle || app.accountOf(activeProject)?.handle || null
   const label = handle ? `@${handle}` : (activeProject || 'perfil').toLowerCase()
 
-  const pubs = useMemo(() => app.publications.filter((p) => p.proyecto === activeProject).sort((a, b) => (b.fecha || 0) - (a.fecha || 0)), [app.publications, activeProject])
+  const pubs = useMemo(() => app.publications.filter((p) => (account ? app.pubMatchesAccount(p) : p.proyecto === activeProject)).sort((a, b) => (b.fecha || 0) - (a.fecha || 0)), [app.publications, account, activeProject, app.pubMatchesAccount])
   const counts = useMemo(() => ({ posts: pubs.filter((p) => !isStory(p)).length, reels: pubs.filter(isReel).length, stories: pubs.filter(isStory).length }), [pubs])
   const sel = pubs.find((p) => p.id === selId) || null
   useEffect(() => { setSelId(null) }, [activeProject, tab])
 
   const pickProject = (name) => { setProject(name); app.setActiveAccount(app.accountOf(name)?.id ?? null) }
-  const est = (e) => pubs.filter((p) => (p.estado || '').toLowerCase() === e).length
+  const est = (e) => pubs.filter((p) => stateLabel(p, account).toLowerCase() === e).length
   const last = pubs.length ? pubs.reduce((a, b) => ((a.fecha || 0) > (b.fecha || 0) ? a : b)).fecha : null
   const unlinked = !!account && !account.proyecto
   const openPub = (p) => app.setSelectedPub(p)
@@ -164,8 +168,8 @@ export default function VisualFeed() {
   const phone = (
     <Phone handle={handle} label={label} projectName={activeProject} counts={counts} pubs={pubs} tab={tab} setTab={setTab} selId={selId}
       onSelect={(p) => setSelId(p.id === selId && !narrow ? null : p.id)} onOpen={openPub} projects={projects} onPickProject={pickProject}
-      hasStories={counts.stories > 0} last={last} planned={pubs.length}
-      emptyNote={unlinked ? 'Asocia esta cuenta a un proyecto para ver su contenido.' : 'Todavía no hay contenido planificado.'} />
+      hasStories={counts.stories > 0} last={last} planned={pubs.length} account={account}
+      emptyNote={unlinked ? 'Esta cuenta aún no tiene contenido ni proyecto asociado.' : 'Todavía no hay contenido planificado.'} />
   )
 
   return (
@@ -210,10 +214,10 @@ export default function VisualFeed() {
             <dt>Borradores</dt><dd><i className="state-dot" style={{ '--dot': stateDot('borrador') }} />{est('borrador')}</dd>
             {last && (<><dt>Última</dt><dd>{fmtShort(last)}</dd></>)}
           </dl>
-          {unlinked && (
+          {unlinked && app.social.backend.authenticated && !app.demo && (
             <div className="field" style={{ marginTop: 16 }}>
               <label htmlFor="vf-link">Asociar @{account.handle} a un proyecto</label>
-              <select id="vf-link" className="select" value="" onChange={(e) => e.target.value && app.linkAccount(account.id, e.target.value)}>
+              <select id="vf-link" className="select" value="" onChange={(e) => { const p = app.projects.find((x) => x.name === e.target.value); if (p) app.social.setAccountProject(account.id, p.id) }}>
                 <option value="">Selecciona un proyecto…</option>
                 {app.projectNames.map((p) => <option key={p}>{p}</option>)}
               </select>
@@ -228,7 +232,7 @@ export default function VisualFeed() {
         <div className="phone-stage">{phone}</div>
 
         {!narrow && (sel
-          ? <DetailPanel pub={sel} onOpen={() => openPub(sel)} onEdit={() => app.requireAuth(() => app.setEditing(sel))} onClose={() => setSelId(null)} />
+          ? <DetailPanel account={account} pub={sel} onOpen={() => openPub(sel)} onEdit={() => app.requireAuth(() => app.setEditing(sel))} onClose={() => setSelId(null)} />
           : (
             <div className="panel feed-detail feed-detail-empty">
               <Icon name="image" size={28} />
@@ -240,7 +244,7 @@ export default function VisualFeed() {
 
       {sel && narrow && (
         <Modal onClose={() => setSelId(null)} size="narrow">
-          <DetailPanel sheet pub={sel} onOpen={() => openPub(sel)} onEdit={() => app.requireAuth(() => app.setEditing(sel))} onClose={() => setSelId(null)} />
+          <DetailPanel sheet account={account} pub={sel} onOpen={() => openPub(sel)} onEdit={() => app.requireAuth(() => app.setEditing(sel))} onClose={() => setSelId(null)} />
         </Modal>
       )}
     </div>

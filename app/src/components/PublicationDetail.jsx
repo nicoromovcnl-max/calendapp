@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
-import { fmtLong, hashtagsOf, instagramUrl, isVideoUrl, splitMedia, thumbOf } from '../lib/data.js'
+import { fmtFull, fmtLong, hashtagsOf, isVideoUrl, splitMedia, thumbOf } from '../lib/data.js'
+import { aggregateStatus, destLabel } from '../lib/destinations.js'
 import { ChannelTile, Cover, Icon, ProjectPill, StatusBadge } from './ui.jsx'
 
 function fileLabel(url, i) {
@@ -12,7 +13,7 @@ function fileLabel(url, i) {
 
 export default function PublicationDetail() {
   const app = useApp()
-  const pub = app.selectedPub
+  const pub = app.publications.find((p) => p.id === app.selectedPub.id) || app.selectedPub
   const list = app.sortedPublications
   const idx = list.findIndex((p) => p.id === pub.id)
   const media = useMemo(() => splitMedia(pub.media), [pub.media])
@@ -29,8 +30,9 @@ export default function PublicationDetail() {
     return () => document.removeEventListener('keydown', onKey)
   })
   const tags = hashtagsOf(pub.copy)
-  const ig = instagramUrl(pub.proyecto)
-  const acc = app.accountOf(pub.proyecto)
+  const dests = pub.destinos || []
+  const firstAcc = dests.length ? app.accountById(dests[0].accountId) : null
+  const ig = firstAcc ? `https://www.instagram.com/${firstAcc.handle}/` : null
   const current = media[active] || ''
   const promocionado = (pub.promocionado || '').toLowerCase().startsWith('s')
 
@@ -64,7 +66,7 @@ export default function PublicationDetail() {
         <div className="detail-info">
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <ProjectPill name={pub.proyecto} />
-            <StatusBadge estado={pub.estado} />
+            <StatusBadge estado={dests.length ? destLabel(aggregateStatus(dests)) : pub.estado} />
           </div>
           <h1>{pub.titulo || pub.proyecto}</h1>
           <p className="muted" style={{ margin: '0 0 var(--s5)' }}>{fmtLong(pub.fecha)}{pub.hora ? ` · ${pub.hora}` : ''}</p>
@@ -75,12 +77,40 @@ export default function PublicationDetail() {
             {tags.length > 0 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>{tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>}
           </div>
 
+          {dests.length > 0 && (
+            <div className="block">
+              <h4>Destinos ({dests.length})</h4>
+              <div className="dest-detail">
+                {dests.map((d) => {
+                  const a = app.accountById(d.accountId)
+                  const when = d.publishedAt || d.scheduledAt
+                  const canRun = app.isAuth && !app.demo && a && app.canPublish(a) && ['draft', 'scheduled', 'failed'].includes(d.status)
+                  return (
+                    <div key={d.id} className="dest-item">
+                      <ChannelTile canal={d.canal} size={26} />
+                      <div className="grow">
+                        <b>@{a?.handle || d.accountId}</b>
+                        <small>{when ? `${d.publishedAt ? 'Publicado' : 'Programado para'} ${fmtFull(when)} · ${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}` : 'Sin fecha de programación'}</small>
+                        {d.status === 'failed' && d.errorMessage && <small className="dest-error">{d.errorMessage}</small>}
+                      </div>
+                      <StatusBadge estado={destLabel(d.status)} />
+                      <div className="dest-actions">
+                        {d.externalUrl && <a className="btn btn-sm btn-ghost" href={d.externalUrl} target="_blank" rel="noreferrer">Ver <Icon name="external" size={12} /></a>}
+                        {canRun && <button className="btn btn-sm" disabled={app.social.busy} onClick={() => app.publishDestinationNow(d)}>{d.status === 'failed' ? 'Reintentar' : 'Publicar ahora'}</button>}
+                        {app.isAuth && ['draft', 'scheduled'].includes(d.status) && <button className="btn btn-sm btn-ghost" disabled={app.social.busy} onClick={() => app.cancelDestination(d)}>Cancelar</button>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="block">
             <h4>Información</h4>
             <dl className="kv" style={{ padding: 0 }}>
               <dt>Proyecto</dt><dd>{pub.proyecto}</dd>
               <dt>Canal</dt><dd>{pub.canal ? <><ChannelTile canal={pub.canal} size={20} />{pub.canal}<span className="muted" style={{ fontWeight: 400, textTransform: 'capitalize' }}>· {pub.tipo || 'imagen'}</span></> : <span className="muted">Sin canal</span>}</dd>
-              {acc && (<><dt>Cuenta</dt><dd>@{acc.handle}</dd></>)}
               {pub.solicitante && (<><dt>Responsable</dt><dd>{pub.solicitante}</dd></>)}
               {promocionado && (<><dt>Campaña Ads</dt><dd>Sí{pub.presupuesto ? ` · ${pub.presupuesto} €` : ''}</dd></>)}
               {pub.url_post && (<><dt>Publicación</dt><dd><a href={pub.url_post} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-600)' }}>Ver publicada <Icon name="external" size={12} /></a></dd></>)}
