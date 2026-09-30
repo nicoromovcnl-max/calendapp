@@ -5,6 +5,7 @@ import PublicationDetail from './components/PublicationDetail.jsx'
 import Editor from './components/Editor.jsx'
 import Requests from './components/Requests.jsx'
 import { AuthModal, RequestDelete, RequestEdit, RequestForm } from './components/Modals.jsx'
+import VisualFeed from './components/VisualFeed.jsx'
 import Projects from './components/Projects.jsx'
 import Library from './components/Library.jsx'
 import Stats from './components/Stats.jsx'
@@ -24,6 +25,7 @@ function Screen() {
   const app = useApp()
   if (app.selectedPub) return <PublicationDetail key={app.selectedPub.id} />
   switch (app.view) {
+    case 'feed': return <VisualFeed />
     case 'requests': return <Requests />
     case 'projects': return <Projects />
     case 'library': return <Library />

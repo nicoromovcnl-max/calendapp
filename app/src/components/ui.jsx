@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { initials, isVideoUrl, projectColor, splitMedia, thumbOf } from '../lib/data.js'
+import { initials, isVideoFile, isVideoUrl, projectColor, splitMedia, thumbOf } from '../lib/data.js'
 import { useApp } from '../store.jsx'
 
 // ── Iconos ────────────────────────────────────────────────────────────────
@@ -131,11 +131,15 @@ export function Thumb({ media, tipo, size = '', style, project }) {
 export function Cover({ media, tipo, iconSize = 30, showPlay = true }) {
   const [broken, setBroken] = useState(false)
   const src = thumbOf(media)
+  const file = !src && isVideoFile(media) ? media.split(',')[0].trim() : null
   useEffect(() => setBroken(false), [media])
+  const show = (src || file) && !broken
   return (
     <>
-      {src && !broken ? <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} /> : <Icon name={tipoIcon[tipo] || 'image'} size={iconSize} />}
-      {showPlay && isVideoUrl(media) && <div className="play"><span><Icon name="play" size={16} /></span></div>}
+      {src && !broken ? <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
+        : file && !broken ? <video src={`${file}#t=0.1`} preload="metadata" muted playsInline onError={() => setBroken(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <Icon name={tipoIcon[tipo] || 'image'} size={iconSize} />}
+      {show && showPlay && isVideoUrl(media) && <div className="play"><span><Icon name="play" size={16} /></span></div>}
     </>
   )
 }

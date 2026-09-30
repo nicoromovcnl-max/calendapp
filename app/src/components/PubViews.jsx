@@ -3,7 +3,7 @@ import { useApp } from '../store.jsx'
 import { CHANNELS, MONTHS, PUB_ESTADOS, WEEKDAYS, fmtLong, fmtShort, projectColor, sameDay, splitMedia, timeAgo } from '../lib/data.js'
 import { ChannelTile, Cover, DemoBanner, Empty, Icon, Menu, Modal, PageHead, ProjectFilter, StatusBadge, Thumb, firstMedia, stateDot } from './ui.jsx'
 
-const VIEW_LABELS = { calendar: 'Mes', list: 'Lista', feed: 'Visual Feed' }
+const VIEW_LABELS = { calendar: 'Mes', list: 'Lista' }
 
 // Texto secundario común a calendario, lista y feed: hora · @cuenta.
 function usePubMeta() {
@@ -237,68 +237,18 @@ function ListView() {
   )
 }
 
-// ── Visual Feed ───────────────────────────────────────────────────────────
-export function FeedCard({ pub, onOpen }) {
-  const meta = usePubMeta()(pub)
-  const n = splitMedia(pub.media).length
-  return (
-    <button className="media-card" onClick={onOpen} aria-label={pub.titulo || pub.proyecto}>
-      <div className="mc-media">
-        <Cover media={firstMedia(pub)} tipo={pub.tipo} iconSize={34} />
-        <div className="mc-top">
-          {pub.canal ? <ChannelTile canal={pub.canal} size={26} onMedia /> : <span />}
-          {n > 1 && <span className="mc-count">1/{n}</span>}
-        </div>
-        {pub.estado && <div className="mc-bottom"><StatusBadge estado={pub.estado} glass /></div>}
-      </div>
-      <div className="mc-body">
-        <div className="mc-meta"><span>{fmtShort(pub.fecha)}{meta.hora && ` · ${meta.hora}`}</span><span>·</span><span className="trunc">{meta.acc || pub.proyecto}</span></div>
-        <div className="mc-title clamp-2">{pub.titulo || pub.proyecto}</div>
-      </div>
-    </button>
-  )
-}
-
-function FeedView() {
-  const app = useApp()
-  const [tab, setTab] = useState('posts')
-  const [limit, setLimit] = useState(24)
-  const list = useMemo(() => {
-    const f = app.filteredPublications.filter((p) => {
-      const t = (p.tipo || '').toLowerCase()
-      return tab === 'reels' ? t === 'reel' : tab === 'stories' ? t === 'historia' : t !== 'historia'
-    })
-    return [...f].sort((a, b) => (b.fecha || 0) - (a.fecha || 0))
-  }, [app.filteredPublications, tab])
-  return (
-    <>
-      <div className="toolbar">
-        <div className="segmented">{[['posts', 'Posts'], ['reels', 'Reels'], ['stories', 'Stories']].map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setLimit(24) }}>{l}</button>)}</div>
-        <span className="muted" style={{ fontSize: 12.5 }}>{list.length} publicaciones</span>
-      </div>
-      {list.length === 0 ? <div className="card"><Empty icon="grid" title="Nada que mostrar">No hay publicaciones de este tipo con los filtros actuales.</Empty></div> : (
-        <>
-          <div className="media-grid">{list.slice(0, limit).map((p) => <FeedCard key={p.id} pub={p} onOpen={() => app.setSelectedPub(p)} />)}</div>
-          {list.length > limit && <div style={{ textAlign: 'center', marginTop: 28 }}><button className="btn" onClick={() => setLimit((l) => l + 24)}>Cargar más</button></div>}
-        </>
-      )}
-    </>
-  )
-}
-
 // ── Página ────────────────────────────────────────────────────────────────
-const TITLES = { calendar: 'Calendario', list: 'Publicaciones', feed: 'Visual Feed' }
+const TITLES = { calendar: 'Calendario', list: 'Publicaciones' }
 const SUBTITLES = {
   calendar: 'Planifica y revisa el contenido de todos tus proyectos.',
   list: 'Listado completo de publicaciones con filtros.',
-  feed: 'Revisa visualmente el calendario editorial.',
 }
 
 export default function PubViews() {
   const app = useApp()
   const { view } = app
   const searching = app.search.trim().length >= 2
-  const monthly = (view === 'calendar' || view === 'list') && !searching
+  const monthly = !searching
   return (
     <div className="view-enter" key={view}>
       <PageHead title={TITLES[view]} subtitle={SUBTITLES[view]}>
@@ -310,7 +260,7 @@ export default function PubViews() {
       <div className="toolbar split-ends" style={{ marginBottom: 12 }}>
         {monthly ? <MonthNav /> : <span />}
         <div className="toolbar" style={{ margin: 0 }}>
-          {(view === 'calendar' || view === 'list') && <MonthSummary pubs={app.filteredPublications} />}
+          <MonthSummary pubs={app.filteredPublications} />
           <ViewSwitch />
         </div>
       </div>
@@ -322,7 +272,7 @@ export default function PubViews() {
           <div className="muted" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>{app.filteredPublications.length === 0 ? 'Sin resultados' : `${app.filteredPublications.length} resultado${app.filteredPublications.length > 1 ? 's' : ''}`}</div>
           {app.filteredPublications.length ? <PubTable pubs={app.filteredPublications} /> : <div className="card"><Empty icon="search" title="Nada coincide con tu búsqueda">Prueba con otro título, proyecto o canal.</Empty></div>}
         </div>
-      ) : view === 'calendar' ? <CalendarView /> : view === 'list' ? <ListView /> : <FeedView />}
+      ) : view === 'calendar' ? <CalendarView /> : <ListView />}
     </div>
   )
 }

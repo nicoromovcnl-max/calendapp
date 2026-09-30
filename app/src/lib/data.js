@@ -124,13 +124,14 @@ export function timeAgo(ts) {
 export const splitMedia = (v) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [])
 
 const PREVIEW = import.meta.env.MODE === 'preview'
-const TONES = ['#c9d8c5', '#e8d5b7', '#b7c9e8', '#e8b7c9', '#d5c9e8', '#b7e8d5', '#e8e0b7', '#d9c2b0']
+// Solo para la vista previa de Claude, que bloquea imágenes externas. El build real nunca lo usa.
+const PREVIEW_TONES = ['#d5dad6', '#c8cfca', '#dedcd4', '#cdd3d8', '#d8d2cc', '#c5cec8']
 function placeholder(url) {
   if (!url || url.startsWith('data:')) return url
   const h = hashStr(url)
-  const a = TONES[h % TONES.length]
-  const b = TONES[(h >> 3) % TONES.length]
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="600" height="700" fill="url(#g)"/><circle cx="300" cy="320" r="110" fill="rgba(255,255,255,.35)"/></svg>`
+  const a = PREVIEW_TONES[h % PREVIEW_TONES.length]
+  const b = PREVIEW_TONES[(h >> 3) % PREVIEW_TONES.length]
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="750"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="600" height="750" fill="url(#g)"/></svg>`
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
@@ -142,19 +143,22 @@ export function thumbOf(url) {
 function rawThumbOf(url) {
   if (!url) return null
   const t = url.split(',')[0].trim()
-  let m = t.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/)
-  if (m) return `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg`
-  if (t.includes('unsplash.com') || /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(t)) return t
-  m = t.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
-  if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`
+  let m = t.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&?/]+)/)
+  if (m) return `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`
   if (/^blob:|^data:image/.test(t)) return t
+  m = t.match(/drive\.google\.com\/file\/d\/([^/?]+)/) || (t.includes('drive.google.com') && t.match(/[?&]id=([\w-]+)/)) || t.match(/docs\.google\.com\/uc\?.*id=([\w-]+)/)
+  if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`
+  if (t.includes('googleusercontent.com') || t.includes('unsplash.com')) return t
+  if (/\.(jpg|jpeg|png|gif|webp|avif)(\?|#|$)/i.test(t)) return t
   return null
 }
+
+export const isVideoFile = (url) => /\.(mp4|mov|webm)(\?|#|$)/i.test((url || '').split(',')[0].trim())
 
 export function isVideoUrl(url) {
   if (!url) return false
   const t = url.split(',')[0].trim()
-  return t.includes('youtube.com') || t.includes('youtu.be') || /\.(mp4|mov|webm)$/i.test(t)
+  return t.includes('youtube.com') || t.includes('youtu.be') || /\.(mp4|mov|webm)(\?|#|$)/i.test(t)
 }
 
 export const hashtagsOf = (text) => [...new Set((text || '').match(/#[\p{L}\p{N}_]+/gu) || [])]

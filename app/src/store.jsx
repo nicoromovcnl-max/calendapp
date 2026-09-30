@@ -6,7 +6,7 @@ import {
   scriptUpdatePublication, scriptUpdateRequest,
 } from './lib/data.js'
 import { demoPublications, demoRequests } from './lib/demo.js'
-import { accountForProject, buildAccounts, loadActiveAccount, loadCustomHandles, normalizeHandle, saveActiveAccount, saveCustomHandles } from './lib/accounts.js'
+import { accountForProject, buildAccounts, loadAccountLinks, loadActiveAccount, loadCustomHandles, normalizeHandle, saveAccountLinks, saveActiveAccount, saveCustomHandles } from './lib/accounts.js'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -43,6 +43,7 @@ export function AppProvider({ children }) {
   const [estadoFilter, setEstadoFilter] = useState('')
   const [search, setSearch] = useState('')
   const [customHandles, setCustomHandles] = useState(loadCustomHandles)
+  const [accountLinks, setAccountLinks] = useState(loadAccountLinks)
   const [activeAccount, setActiveAccountState] = useState(loadActiveAccount)
 
   const [pubs, setPubs] = useState([])
@@ -143,18 +144,21 @@ export function AppProvider({ children }) {
     return [...map.values(), ...extra]
   }, [demo, pubs, overrides])
 
-  const accounts = useMemo(() => buildAccounts(customHandles), [customHandles])
+  const accounts = useMemo(() => buildAccounts(customHandles, accountLinks), [customHandles, accountLinks])
+  const linkAccount = useCallback((id, proyecto) => {
+    setAccountLinks((l) => { const n = { ...l }; if (proyecto) n[id] = proyecto; else delete n[id]; saveAccountLinks(n); return n })
+  }, [])
   const setActiveAccount = useCallback((id) => { setActiveAccountState(id); saveActiveAccount(id) }, [])
   const addAccount = useCallback((raw) => {
     const h = normalizeHandle(raw)
     if (!h) return false
-    if (!buildAccounts(customHandles).some((a) => a.id === h)) {
+    if (!buildAccounts(customHandles, accountLinks).some((a) => a.id === h)) {
       const next = [...customHandles, h]
       setCustomHandles(next); saveCustomHandles(next)
     }
     setActiveAccount(h)
     return true
-  }, [customHandles, setActiveAccount])
+  }, [customHandles, accountLinks, setActiveAccount])
   const account = useMemo(() => accounts.find((a) => a.id === activeAccount) || null, [accounts, activeAccount])
   const accountOf = useCallback((project) => accountForProject(accounts, project), [accounts])
   const matchesAccount = useCallback((project) => !account || accountForProject([account], project)?.id === account.id, [account])
@@ -333,7 +337,7 @@ export function AppProvider({ children }) {
     loadPublications, savePublication, requests, requestsLoading, pendingCount, loadRequests, changeRequestState,
     saveRequest, deleteRequest, submitRequest, createPublication, selectedPub, setSelectedPub, editing, setEditing, showAuth, setShowAuth,
     requestForm, setRequestForm, requestEdit, setRequestEdit, requestDelete, setRequestDelete, toasts, toast,
-    accounts, account, activeAccount, setActiveAccount, addAccount, accountOf, matchesAccount, newPubDate, setNewPubDate,
+    accounts, account, activeAccount, setActiveAccount, addAccount, linkAccount, accountOf, matchesAccount, newPubDate, setNewPubDate,
     login, logout, requireAuth, userName, enterDemo, exitDemo, sidebarCollapsed, setSidebarCollapsed, setRequests,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
