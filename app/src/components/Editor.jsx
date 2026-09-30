@@ -228,11 +228,11 @@ export default function Editor() {
     }).filter((d) => d.status !== 'published')
   }
 
-  const save = async (estadoOverride, { now = false } = {}) => {
+  const save = async (estadoOverride, { now = false, explicit = false } = {}) => {
     if (!valid || saving) return
     const estado = estadoOverride ?? form.estado
     const scheduling = !now && estado === 'Programado'
-    const err = (scheduling || now) && form.canal === 'Instagram' && !usesDestinations ? needAccount : validateDestinations(scheduling, now)
+    const err = (explicit || now) && form.canal === 'Instagram' && !usesDestinations ? needAccount : validateDestinations(scheduling, now)
     if (err) { setProblem(err); return }
     setProblem('')
     setSaving(true)
@@ -359,7 +359,7 @@ export default function Editor() {
           {isNew
             ? <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>{busyLabel || 'Guardar borrador'}</button>
             : <button className="btn" disabled={!valid || saving} onClick={() => save()}>{busyLabel || 'Guardar cambios'}</button>}
-          <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save('Programado')}>Programar</button>
+          <button className="btn btn-primary" disabled={!valid || saving} onClick={() => save('Programado', { explicit: true })}>Programar</button>
           <button className="btn btn-accent" disabled={!valid || saving || !canPublishNow} title={!canPublishNow ? publishWhy : undefined} onClick={() => save(undefined, { now: true })}><Icon name="send" size={14} /> Publicar ahora</button>
         </div>
       </div>

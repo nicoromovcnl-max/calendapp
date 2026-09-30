@@ -28,7 +28,7 @@ if ($route === 'bootstrap' && $method === 'GET') {
     Http::json([
         'ok' => true, 'backend' => true, 'version' => VERSION, 'configured' => Config::flags(), 'authenticated' => $authed,
         'projects' => Repo::projects(), 'platforms' => Platforms::all(), 'accounts' => Repo::accounts(),
-        'destinations' => $authed ? Repo::channels() : [], 'events' => $authed ? Repo::events() : [],
+        'publications' => $authed ? Repo::publications() : [], 'destinations' => $authed ? Repo::channels() : [], 'events' => $authed ? Repo::events() : [],
     ]);
 }
 

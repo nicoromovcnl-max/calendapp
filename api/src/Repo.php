@@ -197,6 +197,15 @@ final class Repo
         ];
     }
 
+    // Contenido guardado en el servidor: permite mostrar publicaciones aunque la hoja no las tenga (p. ej. si falló su escritura).
+    public static function publications(): array
+    {
+        return array_map(fn ($r) => [
+            'ref' => $r['ref'], 'project_id' => $r['project_id'], 'title' => $r['title'], 'caption' => $r['caption'],
+            'tipo' => $r['tipo'], 'media' => json_decode((string) $r['media'], true) ?: [],
+        ], self::db()->query('SELECT ref, project_id, title, caption, tipo, media FROM publications ORDER BY id')->fetchAll());
+    }
+
     public static function channels(?int $publicationId = null): array
     {
         $sql = 'SELECT c.*, p.ref FROM publication_channels c JOIN publications p ON p.id = c.publication_id' . ($publicationId ? ' WHERE c.publication_id = ' . (int) $publicationId : '') . ' ORDER BY c.id';

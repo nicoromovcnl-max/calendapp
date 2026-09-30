@@ -53,6 +53,7 @@ export function useSocial({ demo, toast }) {
   const [backend, setBackend] = useState({ state: 'unknown', configured: null, authenticated: false, version: null })
   const [serverAccounts, setServerAccounts] = useState([])
   const [destinations, setDestinations] = useState([])
+  const [serverPubs, setServerPubs] = useState([])
   const [platforms, setPlatforms] = useState(PLATFORMS_FALLBACK)
   const [events, setEvents] = useState([])
   const [demoOff, setDemoOff] = useState(() => new Set()) // cuentas demo "desconectadas" (simulación)
@@ -67,6 +68,7 @@ export function useSocial({ demo, toast }) {
       setBackend({ state: 'online', configured: r.configured || {}, authenticated: !!r.authenticated, version: r.version || null })
       setServerAccounts((r.accounts || []).map(fromServer))
       setDestinations((r.destinations || []).map((d) => ({ ...normalizeDestination(d), ref: d.ref })))
+      setServerPubs(r.publications || [])
       if (r.platforms?.length) setPlatforms(r.platforms)
       setEvents((r.events || []).map(normalizeEvent))
     } catch (e) {
@@ -110,7 +112,7 @@ export function useSocial({ demo, toast }) {
     if (r.ok) { setBackend((b) => ({ ...b, authenticated: true })); await bootstrap() }
     return true
   }, [call, bootstrap])
-  const logout = useCallback(async () => { try { await api('auth/logout', { method: 'POST', body: {} }) } catch { /* sin sesión */ } setBackend((b) => ({ ...b, authenticated: false })); setDestinations([]) }, [])
+  const logout = useCallback(async () => { try { await api('auth/logout', { method: 'POST', body: {} }) } catch { /* sin sesión */ } setBackend((b) => ({ ...b, authenticated: false })); setDestinations([]); setServerPubs([]) }, [])
 
   // OAuth oficial de Instagram: el usuario introduce sus credenciales en instagram.com, nunca en CalendApp.
   const connectInstagram = useCallback(async (projectId, { forceReauth = false, accountId = null } = {}) => {
@@ -159,7 +161,7 @@ export function useSocial({ demo, toast }) {
   }, [events])
 
   return {
-    backend, platforms, eventsByDest, deletePublication, accounts, destinations, destinationsByRef, busy, bootstrap, login, logout, connectInstagram, addAccount, disconnectAccount, removeAccount,
+    backend, platforms, serverPubs, eventsByDest, deletePublication, accounts, destinations, destinationsByRef, busy, bootstrap, login, logout, connectInstagram, addAccount, disconnectAccount, removeAccount,
     setAccountProject, renewToken, checkAccount, savePublicationDestinations, publishDestination, cancelDestination,
   }
 }

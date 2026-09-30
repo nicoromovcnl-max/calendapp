@@ -6,7 +6,7 @@ import {
   scriptUpdateRequest, splitMedia,
 } from './lib/data.js'
 import { demoPublications, demoRequests } from './lib/demo.js'
-import { PROJECTS, PROJECT_NAMES, applyProjectRegistry, resolveProject } from './lib/projects.js'
+import { PROJECTS, PROJECT_NAMES, applyProjectRegistry, projectById, resolveProject } from './lib/projects.js'
 import { aggregateStatus, combineDateTime, destTime, isoDate, pubRef, statusToEstado, withDestinations } from './lib/destinations.js'
 import { canPublish, useSocial } from './lib/social.jsx'
 
@@ -177,13 +177,25 @@ export function AppProvider({ children }) {
       if (map.has(id)) map.set(id, { ...map.get(id), ...o })
       else if (o.fecha && !(id.startsWith('tmp-') && baseRefs.has(pubRef(o)))) extra.push(o)
     }
+    // Publicaciones que solo existen en el servidor (la hoja no las tiene): no se pierden.
+    if (!demo) {
+      const known = new Set([...baseRefs, ...extra.map(pubRef)])
+      for (const sp of social.serverPubs) {
+        if (known.has(sp.ref)) continue
+        const [, day] = sp.ref.split('|')
+        const fecha = /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? new Date(`${day}T12:00:00`) : null
+        const proyecto = projectById(sp.project_id)?.name
+        if (!fecha || !proyecto) continue
+        extra.push({ id: `srv-${sp.ref}`, proyecto, fecha, titulo: sp.title, copy: sp.caption, media: (sp.media || []).join(', '), tipo: sp.tipo, canal: 'Instagram', estado: '', url_post: '', promocionado: 'No' })
+      }
+    }
     return [...map.values(), ...extra].filter((p) => !removed.has(p.id)).map((p) => {
       // Fuera de la demo, el estado real de los destinos lo manda el servidor; el snapshot local solo sirve hasta la primera sincronización.
       const dests = demo ? p.destinos : (social.destinationsByRef.get(pubRef(p)) ?? p.destinos)
       const withD = withDestinations(p, dests)
       return withD.destinos?.length ? { ...withD, estado: statusToEstado(aggregateStatus(withD.destinos)) } : withD
     })
-  }, [demo, pubs, overrides, removed, social.destinationsByRef])
+  }, [demo, pubs, overrides, removed, social.destinationsByRef, social.serverPubs])
 
   const sortedPublications = useMemo(() => [...publications].sort((a, b) => (a.fecha || 0) - (b.fecha || 0)), [publications])
 
@@ -299,24 +311,23 @@ export function AppProvider({ children }) {
       if (publishAfter?.length && saved.destinos?.length) return demoPublish(saved, publishAfter)
       return saved
     }
+    // La hoja es un registro adicional: si falla, los destinos ya guardados en el servidor siguen su curso (incluida la publicación).
+    let sheetOk = true
     try {
       const { hora, destinos, ...sheetForm } = form
       await scriptCreatePublication(config.requestsScriptUrl, { ...sheetForm, estado: saved.estado || form.estado })
-      setOverride(saved.id, saved)
-      setEditing(null)
-      toast.success('Publicación añadida a la hoja')
-      loadPublications(true)
-      setTimeout(() => loadPublications(true), 4000)
-    } catch {
-      toast.error('Error de conexión.')
-      return saved
-    }
+    } catch { sheetOk = false }
+    setOverride(saved.id, saved)
+    setEditing(null)
+    if (sheetOk) { toast.success('Publicación añadida a la hoja'); loadPublications(true); setTimeout(() => loadPublications(true), 4000) }
+    else toast.error(saved.destinos?.length ? 'No se pudo escribir en la hoja; la publicación sí está guardada en el servidor.' : 'Error de conexión: no se guardó en la hoja.')
+    if (!sheetOk && !saved.destinos?.length) return saved
     if (publishAfter && saved.destinos?.length) {
       const targets = saved.destinos.filter((d) => publishAfter.includes(d.accountId))
       await publishNow(targets)
     }
     return saved
-  }, [demo, config.requestsScriptUrl, persistDestinations, publishNow, demoPublish, loadPublications, setOverride, toast])
+  }, [demo, config.requestsScriptUrl, persistDestinations, publishNow, demoPublish, loadPublications, setOverride, clearOverride, toast])
 
   // Acciones sobre un destino ya existente (detalle de publicación).
   const publishDestinationNow = useCallback(async (d) => {
