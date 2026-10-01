@@ -30,13 +30,7 @@ const Row = ({ icon, title, sub, children }) => (
 function ServerGroup() {
   const app = useApp()
   const { backend } = app.social
-  const [pw, setPw] = useState('')
-  const [err, setErr] = useState('')
   const cfg = backend.configured || {}
-  const login = async (e) => {
-    e.preventDefault(); setErr('')
-    try { await app.social.login(pw); setPw('') } catch (x) { setErr(x.message) }
-  }
   const flags = [
     ['meta_app', 'Aplicación de Meta (ID y secreto)'], ['redirect_uri', 'URL de retorno OAuth'], ['crypto', 'Clave de cifrado de tokens'], ['admin', 'Contraseña de administración'],
   ]
@@ -52,18 +46,11 @@ function ServerGroup() {
           <div className="flag-grid">
             {flags.map(([k, l]) => <span key={k} className={`flag ${cfg[k] ? 'ok' : 'bad'}`}><Icon name={cfg[k] ? 'check' : 'x'} size={13} />{l}</span>)}
           </div>
-          {flags.some(([k]) => !cfg[k]) && <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>Faltan valores de configuración en el servidor (api/config.local.php o variables de entorno). Consulta api/README.md.</p>}
+          {flags.some(([k]) => !cfg[k]) && <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>Faltan variables de entorno en el servidor (en Vercel: Settings → Environment Variables). Consulta DEPLOY-VERCEL.md.</p>}
         </div>
       )}
-      {backend.state === 'online' && !backend.authenticated && (
-        <form className="row-item" onSubmit={login}>
-          <div className="grow field"><label htmlFor="srv-pw">Contraseña del servidor</label><input id="srv-pw" type="password" autoComplete="new-password" className="input" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Contraseña de administración" />
-            {err && <span style={{ color: 'var(--red)', fontSize: 12, fontWeight: 600 }}>{err}{/incorrecta/i.test(err) ? ' Es la contraseña del servidor (ADMIN_PASSWORD de Vercel), no la del acceso del equipo.' : ''}</span>}</div>
-          <button className="btn btn-primary" type="submit" style={{ alignSelf: 'flex-end' }} disabled={!pw}>Iniciar sesión</button>
-        </form>
-      )}
       {backend.state === 'online' && backend.authenticated && (
-        <Row title="Sesión de administración activa" sub="Puedes conectar cuentas y programar publicaciones."><button className="btn btn-sm" onClick={app.social.logout}>Cerrar sesión</button></Row>
+        <Row title="Sesión de administración activa" sub="Entraste con el acceso del equipo: puedes conectar cuentas, programar y publicar. Dura 12 horas."><button className="btn btn-sm" onClick={app.logout}>Cerrar sesión</button></Row>
       )}
     </Group>
   )
@@ -91,7 +78,7 @@ function InstagramGroup({ platform }) {
   const { backend, busy } = app.social
   const ready = app.demo ? true : backend.state === 'online' && backend.authenticated
   const canConnect = app.demo || (ready && backend.configured?.meta_app && backend.configured?.redirect_uri && backend.configured?.crypto)
-  const why = backend.state !== 'online' && !app.demo ? 'El servidor no está disponible.' : !ready ? 'Inicia sesión en el servidor.' : !canConnect ? 'Falta configuración de Meta en el servidor.' : ''
+  const why = backend.state !== 'online' && !app.demo ? 'El servidor no está disponible.' : !ready ? 'La sesión del servidor ha caducado: vuelve a entrar con el acceso del equipo.' : !canConnect ? 'Falta configuración de Meta en el servidor.' : ''
   const connected = app.accounts.filter((a) => a.status === 'connected' || a.status === 'demo')
   const check = async (a) => {
     try {

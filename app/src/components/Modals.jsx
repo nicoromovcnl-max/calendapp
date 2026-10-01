@@ -36,21 +36,25 @@ export function AuthModal() {
   const app = useApp()
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
-  const submit = (e) => {
+  const [busy, setBusy] = useState(false)
+  const submit = async (e) => {
     e.preventDefault()
-    if (app.login(pw)) app.setShowAuth(false)
-    else { setErr('Contraseña incorrecta'); setPw('') }
+    setBusy(true)
+    try {
+      if (await app.login(pw)) app.setShowAuth(false)
+      else { setErr('Contraseña incorrecta'); setPw('') }
+    } catch (x) { setErr(x.message || 'No se pudo iniciar sesión.') } finally { setBusy(false) }
   }
   return (
     <Modal onClose={() => app.setShowAuth(false)} size="narrow">
-      <Head title="Acceso del equipo" sub="Contraseña para añadir y editar publicaciones" onClose={() => app.setShowAuth(false)} />
+      <Head title="Acceso del equipo" sub="Una sola contraseña para administrar: publicaciones, cuentas y ajustes" onClose={() => app.setShowAuth(false)} />
       <form className="dialog-body" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div className="field">
           <label htmlFor="pw">Contraseña</label>
           <input id="pw" type="password" className="input" autoFocus value={pw} onChange={(e) => { setPw(e.target.value); setErr('') }} placeholder="Contraseña" style={err ? { borderColor: 'var(--red)' } : undefined} />
           {err && <span style={{ color: 'var(--red)', fontSize: 12, fontWeight: 600 }}>{err}</span>}
         </div>
-        <button className="btn btn-primary" type="submit" disabled={!pw}>Entrar</button>
+        <button className="btn btn-primary" type="submit" disabled={!pw || busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
       </form>
     </Modal>
   )
