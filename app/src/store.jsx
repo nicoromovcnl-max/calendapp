@@ -487,16 +487,28 @@ export function AppProvider({ children }) {
   }, [])
 
   // ── Sesión ──────────────────────────────────────────────────────────────
-  const login = useCallback((password) => {
-    if (password !== PASSWORD) return false
-    lsSet(AUTH_KEY, '1')
-    setIsAuth(true)
-    // Sesión de servidor (cuentas y publicación): si usa la misma contraseña, queda activa.
-    if (!demo && social.backend.state === 'online') social.login(password).catch(() => {})
-    return true
+  // Una sola contraseña: el acceso de admin lo valida el servidor y abre a la vez la sesión del servidor.
+  // Sin servidor (solo hoja de cálculo) o en la demo, se usa la comprobación local de siempre.
+  const login = useCallback(async (password) => {
+    const done = () => { lsSet(AUTH_KEY, '1'); setIsAuth(true); return true }
+    if (demo) return password === PASSWORD ? done() : false
+    try {
+      await social.login(password)
+      return done()
+    } catch (e) {
+      if (e.code === 'unavailable') return password === PASSWORD ? done() : false
+      if (e.code === 'bad_credentials') return false
+      throw e
+    }
   }, [demo, social])
   const logout = useCallback(() => { lsRemove(AUTH_KEY); setIsAuth(false); social.logout() }, [social])
   const requireAuth = useCallback((then) => { if (isAuth) then(); else setShowAuth(true) }, [isAuth])
+
+  // Si el servidor está disponible, la sesión de admin es la del servidor: al caducar, hay que volver a entrar.
+  useEffect(() => {
+    if (demo || social.backend.state !== 'online') return
+    if (!social.backend.authenticated && isAuth) { lsRemove(AUTH_KEY); setIsAuth(false) }
+  }, [demo, social.backend.state, social.backend.authenticated, isAuth])
 
   const userName = lsGet(NAME_KEY) || ''
 
