@@ -75,16 +75,18 @@ function validateCaption(caption) {
   if ((caption.match(/@[\w.]+/gu) || []).length > 20) throw new Error('Instagram admite un máximo de 20 menciones.')
 }
 
-async function source(url, expect, req) {
+async function source(url, expect, req, opts = {}) {
   const [kind, detail] = await Media.classify(url)
   if (kind === 'youtube') throw new Error('Los enlaces de YouTube no se pueden publicar en Instagram: sube el archivo de vídeo.')
   if (kind === 'blocked') throw new Error(`No se puede usar el archivo multimedia: ${detail}`)
   if (kind !== expect) throw new Error(expect === 'image' ? 'Este contenido necesita una imagen y el archivo es un vídeo.' : 'Este contenido necesita un vídeo y el archivo es una imagen.')
   if (expect === 'image' && !['jpeg', 'png', 'webp', 'gif'].includes(detail)) throw new Error('Formato de imagen no compatible.')
-  return Media.relayUrl(url, req)
+  return Media.relayUrl(url, req, 3600, expect === 'image' ? opts : {})
 }
 
 async function createContainer(ch, ig, token, req) {
+  // Las imágenes de feed se ajustan al formato elegido (Instagram solo admite relaciones entre 4:5 y 1,91:1).
+  const fmt = { ratio: ch.image_ratio || 'original', fit: ch.image_fit || 'fit' }
   let media = []
   try { media = JSON.parse(ch.media || '[]') || [] } catch { /* vacío */ }
   const caption = String(ch.caption ?? '')
@@ -98,7 +100,7 @@ async function createContainer(ch, ig, token, req) {
       for (const m of media) {
         const [kind] = await Media.classify(m)
         if (kind === 'video') throw new Error('Los carruseles con vídeo todavía no están soportados por CalendApp: usa solo imágenes.')
-        children.push(await Instagram.createContainer(ig, token, { image_url: await source(m, 'image', req), is_carousel_item: 'true' }))
+        children.push(await Instagram.createContainer(ig, token, { image_url: await source(m, 'image', req, fmt), is_carousel_item: 'true' }))
       }
       for (const c of children) await wait(c, token, 30)
       return Instagram.createContainer(ig, token, { media_type: 'CAROUSEL', children: children.join(','), caption })
@@ -113,6 +115,6 @@ async function createContainer(ch, ig, token, req) {
         : Instagram.createContainer(ig, token, { media_type: 'STORIES', image_url: await source(media[0], 'image', req) })
     }
     default:
-      return Instagram.createContainer(ig, token, { image_url: await source(media[0], 'image', req), caption })
+      return Instagram.createContainer(ig, token, { image_url: await source(media[0], 'image', req, fmt), caption })
   }
 }

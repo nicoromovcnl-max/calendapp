@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { CHANNELS, MONTHS, PUB_ESTADOS, WEEKDAYS, fmtLong, fmtShort, projectColor, sameDay, splitMedia, timeAgo } from '../lib/data.js'
-import { ChannelTile, Cover, DemoBanner, Empty, Icon, Menu, Modal, PageHead, ProjectFilter, StatusBadge, Thumb, firstMedia, stateDot } from './ui.jsx'
+import { ChannelTile, Cover, DemoBanner, Empty, Icon, Menu, Modal, PageHead, ProjectFilter, StatusBadge, Thumb, firstMedia, stateDot, useOutside } from './ui.jsx'
 import { aggregateStatus, destLabel, destTime } from '../lib/destinations.js'
 import { CreateMenu } from './Sidebar.jsx'
 
@@ -116,10 +116,41 @@ function DayModal({ date, items, onClose }) {
   )
 }
 
+// Menú pequeño al pulsar una publicación del calendario: ver, editar, duplicar y eliminar.
+function PostMenu({ menu, onClose }) {
+  const app = useApp()
+  const ref = useRef(null)
+  const [confirm, setConfirm] = useState(false)
+  useOutside(ref, onClose)
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', k)
+    return () => document.removeEventListener('keydown', k)
+  }, [onClose])
+  const { pub } = menu.o
+  const locked = pub.destinos?.some((d) => ['published', 'publishing'].includes(d.status))
+  const W = 224
+  const left = Math.max(8, Math.min(menu.x, window.innerWidth - W - 8))
+  const top = Math.min(menu.y, window.innerHeight - 220)
+  const go = (fn) => { onClose(); fn() }
+  return (
+    <div ref={ref} className="post-menu" role="menu" style={{ left, top, width: W }}>
+      <div className="post-menu-head"><b className="trunc">{pub.titulo || pub.proyecto}</b><small>{[menu.o.hora, menu.o.acc ? `@${menu.o.acc.handle}` : pub.proyecto].filter(Boolean).join(' · ')}</small></div>
+      <button className="pop-item" role="menuitem" onClick={() => go(() => app.setSelectedPub(pub))}><Icon name="external" size={15} /> Ver detalle</button>
+      <button className="pop-item" role="menuitem" onClick={() => go(() => app.requireAuth(() => app.setEditing(pub)))}><Icon name="edit" size={15} /> Editar</button>
+      <button className="pop-item" role="menuitem" onClick={() => go(() => app.requireAuth(() => app.duplicatePublication(pub)))}><Icon name="copy" size={15} /> Duplicar</button>
+      {confirm
+        ? <div className="post-menu-confirm"><span>¿Eliminar esta publicación?</span><div><button className="btn btn-sm btn-danger" onClick={() => go(() => app.requireAuth(() => app.deletePublication(pub)))}>Sí, eliminar</button><button className="btn btn-sm btn-ghost" onClick={() => setConfirm(false)}>No</button></div></div>
+        : <button className="pop-item danger" role="menuitem" onClick={() => (locked ? app.toast.error('Ya está en Instagram: Meta no permite borrarla desde la API. Elimínala desde la app de Instagram.') : setConfirm(true))}><Icon name="trash" size={15} /> Eliminar</button>}
+    </div>
+  )
+}
+
 function CalendarView() {
   const app = useApp()
   const { year, month, filteredPublications: pubs, account } = app
   const [dayOpen, setDayOpen] = useState(null)
+  const [menu, setMenu] = useState(null)
   const days = useMemo(() => buildDays(year, month), [year, month])
   const byDay = useMemo(() => {
     const m = new Map()
@@ -157,7 +188,7 @@ function CalendarView() {
                 <button className="cal-add" onClick={() => addOn(d)} aria-label={`Crear publicación el ${d.getDate()}`}><Icon name="plus" size={13} /></button>
               </div>
               {list.slice(0, LIMIT).map((o) => (
-                <button key={o.key} className="cal-post" draggable={app.isAuth && !o.pub.destinos?.some((x) => ['published', 'publishing'].includes(x.status))} onDragStart={(e) => { e.dataTransfer.setData('text/plain', o.pub.id); e.dataTransfer.effectAllowed = 'move' }} onClick={() => app.setSelectedPub(o.pub)} title={`${o.pub.proyecto} · ${o.pub.titulo}${o.acc ? ` · @${o.acc.handle}` : ''}${o.label ? ` · ${o.label}` : ''}`}>
+                <button key={o.key} className="cal-post" draggable={app.isAuth && !o.pub.destinos?.some((x) => ['published', 'publishing'].includes(x.status))} onDragStart={(e) => { e.dataTransfer.setData('text/plain', o.pub.id); e.dataTransfer.effectAllowed = 'move' }} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ o, x: r.left, y: r.bottom + 4 }) }} title={`${o.pub.proyecto} · ${o.pub.titulo}${o.acc ? ` · @${o.acc.handle}` : ''}${o.label ? ` · ${o.label}` : ''}`}>
                   <Thumb media={firstMedia(o.pub)} tipo={o.pub.tipo} size="sm" project={o.pub.proyecto} />
                   <span className="body">
                     <span className="ti">{o.pub.titulo || o.pub.proyecto}</span>
@@ -171,6 +202,7 @@ function CalendarView() {
           )
         })}
       </div>
+      {menu && <PostMenu menu={menu} onClose={() => setMenu(null)} />}
       {dayOpen && <DayModal date={dayOpen.date} items={dayOpen.items} onClose={() => setDayOpen(null)} />}
     </div>
   )
@@ -226,6 +258,7 @@ export function PubTable({ pubs }) {
                     <Menu items={[
                       { label: 'Abrir', icon: 'external', onClick: () => app.setSelectedPub(p) },
                       { label: 'Editar', icon: 'edit', onClick: () => app.requireAuth(() => app.setEditing(p)) },
+                      { label: 'Duplicar', icon: 'copy', onClick: () => app.requireAuth(() => app.duplicatePublication(p)) },
                       !p.destinos?.some((d) => ['published', 'publishing'].includes(d.status)) && { label: 'Eliminar', icon: 'trash', onClick: () => app.requireAuth(() => app.deletePublication(p)) },
                     ]} />
                   </td>

@@ -91,6 +91,7 @@ export function useSocial({ demo, toast }) {
     return SEED_ACCOUNTS.map((a) => fromSeed(a, backend.state === 'offline' ? 'offline' : 'pending'))
   }, [demo, demoOff, backend.state, serverAccounts])
 
+  const serverPubsByRef = useMemo(() => new Map(serverPubs.map((p) => [p.ref, p])), [serverPubs])
   const destinationsByRef = useMemo(() => {
     const m = new Map()
     destinations.forEach((d) => { if (!m.has(d.ref)) m.set(d.ref, []); m.get(d.ref).push(d) })
@@ -161,7 +162,7 @@ export function useSocial({ demo, toast }) {
   }, [events])
 
   return {
-    backend, platforms, serverPubs, eventsByDest, deletePublication, accounts, destinations, destinationsByRef, busy, bootstrap, login, logout, connectInstagram, addAccount, disconnectAccount, removeAccount,
+    backend, platforms, serverPubs, serverPubsByRef, eventsByDest, deletePublication, accounts, destinations, destinationsByRef, busy, bootstrap, login, logout, connectInstagram, addAccount, disconnectAccount, removeAccount,
     setAccountProject, renewToken, checkAccount, savePublicationDestinations, publishDestination, cancelDestination,
   }
 }

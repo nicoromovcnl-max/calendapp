@@ -60,6 +60,9 @@ const SCHEMA = [
 
 async function migrate(d) {
   for (const s of SCHEMA) await d.query(s)
+  // Formato de imagen (recorte) de la publicación.
+  await d.query('ALTER TABLE publications ADD COLUMN IF NOT EXISTS image_ratio TEXT')
+  await d.query('ALTER TABLE publications ADD COLUMN IF NOT EXISTS image_fit TEXT')
   const { rows } = await d.query('SELECT COUNT(*)::int AS n FROM projects')
   if (rows[0].n > 0) return
   const seed = (await import('./seed-projects.json', { with: { type: 'json' } })).default

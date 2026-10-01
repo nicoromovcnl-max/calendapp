@@ -192,10 +192,11 @@ export function AppProvider({ children }) {
     return [...map.values(), ...extra].filter((p) => !removed.has(p.id)).map((p) => {
       // Fuera de la demo, el estado real de los destinos lo manda el servidor; el snapshot local solo sirve hasta la primera sincronización.
       const dests = demo ? p.destinos : (social.destinationsByRef.get(pubRef(p)) ?? p.destinos)
-      const withD = withDestinations(p, dests)
+      const sp = demo ? null : social.serverPubs.length ? social.serverPubsByRef.get(pubRef(p)) : null
+      const withD = withDestinations(sp && p.image_ratio === undefined ? { ...p, image_ratio: sp.image_ratio || 'original', image_fit: sp.image_fit || 'fit' } : p, dests)
       return withD.destinos?.length ? { ...withD, estado: statusToEstado(aggregateStatus(withD.destinos)) } : withD
     })
-  }, [demo, pubs, overrides, removed, social.destinationsByRef, social.serverPubs])
+  }, [demo, pubs, overrides, removed, social.destinationsByRef, social.serverPubs, social.serverPubsByRef])
 
   const sortedPublications = useMemo(() => [...publications].sort((a, b) => (a.fecha || 0) - (b.fecha || 0)), [publications])
 
@@ -228,7 +229,7 @@ export function AppProvider({ children }) {
     const ref = pubRef(pub)
     return social.savePublicationDestinations({
       ref, previous_ref: previousRef && previousRef !== ref ? previousRef : null, project_id: resolveProject(pub.proyecto)?.id,
-      title: pub.titulo, caption: pub.copy || '', media: splitMedia(pub.media), tipo: pub.tipo || 'imagen',
+      title: pub.titulo, caption: pub.copy || '', media: splitMedia(pub.media), tipo: pub.tipo || 'imagen', image_ratio: pub.image_ratio || 'original', image_fit: pub.image_fit || 'fit',
       destinations: dests.map((d) => ({ social_account_id: Number(d.accountId), status: d.status, scheduled_at: d.scheduledAt ? d.scheduledAt.toISOString() : null, timezone: d.timezone || undefined })),
     })
   }, [demo, social])
@@ -279,7 +280,7 @@ export function AppProvider({ children }) {
     setEditing(null)
     toast.success('Publicación guardada')
     if (!demo && config.requestsScriptUrl && isSheetRow) {
-      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...saved, proyecto: sheetProject(saved), destinos: undefined }) } catch { toast.error('No se pudo guardar en la hoja') }
+      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...saved, proyecto: sheetProject(saved), destinos: undefined, image_ratio: undefined, image_fit: undefined }) } catch { toast.error('No se pudo guardar en la hoja') }
     }
     if (publishAfter && saved.destinos?.length && demo) demoPublish(saved, publishAfter)
     if (publishAfter && saved.destinos?.length && !demo) {
@@ -314,7 +315,7 @@ export function AppProvider({ children }) {
     // La hoja es un registro adicional: si falla, los destinos ya guardados en el servidor siguen su curso (incluida la publicación).
     let sheetOk = true
     try {
-      const { hora, destinos, ...sheetForm } = form
+      const { hora, destinos, image_ratio, image_fit, ...sheetForm } = form
       await scriptCreatePublication(config.requestsScriptUrl, { ...sheetForm, estado: saved.estado || form.estado })
     } catch { sheetOk = false }
     setOverride(saved.id, saved)
@@ -365,7 +366,7 @@ export function AppProvider({ children }) {
     setOverride(pub.id, saved)
     toast.success(`Movida al ${fecha.getDate()}/${fecha.getMonth() + 1}`)
     if (!demo && config.requestsScriptUrl && /^\d+$/.test(String(pub.id))) {
-      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...saved, proyecto: sheetProject(saved), destinos: undefined }) } catch { toast.error('No se pudo guardar en la hoja') }
+      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...saved, proyecto: sheetProject(saved), destinos: undefined, image_ratio: undefined, image_fit: undefined }) } catch { toast.error('No se pudo guardar en la hoja') }
       setTimeout(async () => { await loadPublications(true); clearOverride(pub.id) }, 5000)
     }
   }, [demo, config.requestsScriptUrl, persistDestinations, loadPublications, setOverride, clearOverride, toast])
@@ -382,7 +383,7 @@ export function AppProvider({ children }) {
     }
     const isSheetRow = /^\d+$/.test(String(pub.id))
     if (!demo && isSheetRow && config.requestsScriptUrl) {
-      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...pub, proyecto: sheetProject(pub), estado: 'Cancelado', destinos: undefined }) } catch { toast.error('No se pudo actualizar la hoja') }
+      try { await scriptUpdatePublication(config.requestsScriptUrl, parseInt(pub.id), { ...pub, proyecto: sheetProject(pub), estado: 'Cancelado', destinos: undefined, image_ratio: undefined, image_fit: undefined }) } catch { toast.error('No se pudo actualizar la hoja') }
     }
     if (isSheetRow && !demo) setOverride(pub.id, { ...pub, destinos: undefined, estado: 'Cancelado' })
     else setRemoved((r) => new Set(r).add(pub.id))
@@ -395,6 +396,14 @@ export function AppProvider({ children }) {
   // Crear desde cualquier vista: una publicación no necesita petición previa.
   const startPublication = useCallback((date = null) => { setNewPubDate(date); setEditing('new') }, [])
   const startRequest = useCallback(() => setRequestForm(true), [])
+  // Duplicar: abre el editor como publicación nueva, con otro título para no chocar con la original.
+  const duplicatePublication = useCallback((pub) => {
+    setSelectedPub(null)
+    setEditing({
+      ...pub, id: `dup-${Date.now()}`, isDuplicate: true, titulo: `Copia de ${pub.titulo || pub.proyecto}`, estado: '', url_post: '',
+      destinos: (pub.destinos || []).filter((d) => d.status !== 'cancelled').map((d) => ({ ...d, id: `dup-${d.id}`, status: 'draft', publishedAt: null, externalPostId: null, externalUrl: null, errorMessage: null })),
+    })
+  }, [])
 
   // ── Peticiones ──────────────────────────────────────────────────────────
   const loadRequests = useCallback(async () => {
@@ -533,7 +542,7 @@ export function AppProvider({ children }) {
     config, isAuth, demo, view, setView, settingsTab, setSettingsTab, goIntegrations, reqFilter, setReqFilter, year, month, shiftMonth, goToday, setYear, setMonth,
     projectsFilter, setProjectsFilter, canalFilter, setCanalFilter, estadoFilter, setEstadoFilter, search, setSearch,
     publications, sortedPublications, filteredPublications, projects: PROJECTS, projectNames: PROJECT_NAMES, hiddenCount: hiddenPubs + hiddenReqs,
-    loading, error, lastSynced, loadPublications, savePublication, createPublication, publishPublicationNow, publishDestinationNow, cancelDestination, movePublication, deletePublication, startPublication, startRequest,
+    loading, error, lastSynced, loadPublications, savePublication, createPublication, publishPublicationNow, publishDestinationNow, cancelDestination, movePublication, deletePublication, duplicatePublication, startPublication, startRequest,
     requests, requestsLoading, pendingCount, loadRequests, changeRequestState, saveRequest, deleteRequest, submitRequest, openEditorForRequest,
     selectedPub, setSelectedPub, editing, setEditing, showAuth, setShowAuth,
     requestForm, setRequestForm, requestEdit, setRequestEdit, requestDelete, setRequestDelete, toasts, toast,

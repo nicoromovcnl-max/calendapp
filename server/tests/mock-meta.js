@@ -1,8 +1,12 @@
 // Meta simulado SOLO para pruebas locales de integración (no forma parte del despliegue).
 // Reproduce la forma de las respuestas documentadas de la API de Instagram con inicio de sesión de Instagram.
 import http from 'node:http'
+import sharp from 'sharp'
 
-export function startMock(port) {
+export async function startMock(port) {
+  // Imágenes JPEG reales (el relé las procesa con sharp): por defecto 4:5 dentro del rango; wide y tall quedan fuera de 4:5–1,91:1.
+  const jpg = (w, h, c) => sharp({ create: { width: w, height: h, channels: 3, background: c } }).jpeg().toBuffer()
+  const IMG = { default: await jpg(800, 1000, '#c33'), wide: await jpg(1000, 300, '#3a3'), tall: await jpg(400, 1000, '#33c') }
   const st = { n: 0, published: [], containers: {}, polls: {}, failAuth: false, calls: [] }
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x'); const p = url.pathname
@@ -11,7 +15,7 @@ export function startMock(port) {
     st.calls.push(`${req.method} ${p}`)
     const out = (d, code = 200) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(d)) }
     if (p.startsWith('/files/')) {
-      if (p.endsWith('.jpg')) { res.setHeader('Content-Type', 'image/jpeg'); return res.end(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(2000, 74)])) }
+      if (p.endsWith('.jpg')) { res.setHeader('Content-Type', 'image/jpeg'); return res.end(p.includes('wide') ? IMG.wide : p.includes('tall') ? IMG.tall : IMG.default) }
       if (p.endsWith('.png')) { res.setHeader('Content-Type', 'image/png'); return res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')) }
       if (p.endsWith('.mp4')) { res.setHeader('Content-Type', 'video/mp4'); return res.end(Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypmp42'), Buffer.alloc(4000, 86)])) }
       res.setHeader('Content-Type', 'text/html'); return res.end('<html>login</html>')

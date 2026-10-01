@@ -695,3 +695,15 @@ details.plain[open] summary { border-bottom: 1px solid var(--line); }
 .field-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 720px) { .field-row.three { grid-template-columns: minmax(0, 1fr); } }
 .confirm-inline { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+
+/* ── Menú de una publicación del calendario ─────────────────────────────── */
+.post-menu { position: fixed; z-index: 70; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-lg); padding: 6px; animation: pop 0.14s var(--ease); }
+.post-menu-head { padding: 6px 10px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; min-width: 0; }
+.post-menu-head b { display: block; font-size: var(--fs-md); }
+.post-menu-head small { display: block; color: var(--ink-3); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-item.danger { color: var(--red); }
+.pop-item.danger:hover { background: var(--red-bg); }
+.post-menu-confirm { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.post-menu-confirm > div { display: flex; gap: 6px; }
+.phone .p-media.contain { background: #fff; }
+.phone .p-media.contain img { object-fit: contain; }
