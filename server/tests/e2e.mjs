@@ -35,6 +35,7 @@ try {
   ok('POST sin cabecera CSRF rechazado', (await status('accounts/add', { method: 'POST', body: '{}' })) === 403)
   ok('acción sin sesión → 401', (await status('accounts/add', { method: 'POST', headers: H(), body: '{"username":"x"}' })) === 401)
   ok('contraseña incorrecta → 401', (await status('auth/login', { method: 'POST', headers: H(), body: '{"password":"mala"}' })) === 401)
+  R = await post('auth/login', { password: '  pw-test\n' }); ok('login tolera espacios/saltos de línea sobrantes', R.ok === true); cookie = ''
   R = await post('auth/login', { password: 'pw-test' }); ok('login correcto (cookie HttpOnly firmada)', R.ok === true && cookie.startsWith('calendapp_sid='))
   ok('una cookie manipulada no vale', (await status('accounts/add', { method: 'POST', headers: { ...H(), Cookie: cookie.slice(0, -3) + 'abc' }, body: '{"username":"zz"}' })) === 401)
 
