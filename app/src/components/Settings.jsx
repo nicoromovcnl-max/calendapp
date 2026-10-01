@@ -185,6 +185,20 @@ export default function Settings() {
   }, [app.requests])
   const pending = app.requests.filter(isPendingRequest)
 
+  // Ajustes (cuentas, integraciones, equipo) solo para el equipo. La protección real de las acciones está en el servidor.
+  if (!app.isAuth) {
+    return (
+      <div className="view-enter">
+        <PageHead title="Ajustes" subtitle="Cuenta, equipo, proyectos e integraciones." />
+        <div className="card"><div className="no-account" style={{ border: 0 }}>
+          <Icon name="lock" size={18} />
+          <div className="grow"><b>Acceso restringido</b><small>Los ajustes y las integraciones solo están disponibles para el equipo.</small></div>
+          <button className="btn btn-primary btn-sm" onClick={() => app.setShowAuth(true)}><Icon name="lock" size={14} /> Acceso del equipo</button>
+        </div></div>
+      </div>
+    )
+  }
+
   return (
     <div className="view-enter">
       <PageHead title="Ajustes" subtitle="Cuenta, equipo, proyectos e integraciones." />

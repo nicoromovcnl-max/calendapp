@@ -101,7 +101,7 @@ export function UserMenu({ up = true }) {
           {app.demo
             ? <button className="pop-item" onClick={() => { app.exitDemo(); setOpen(false) }}><Icon name="x" size={15} /> Salir del modo demo</button>
             : <button className="pop-item" onClick={() => { app.enterDemo(); setOpen(false) }}><Icon name="flame" size={15} /> Ver modo demo</button>}
-          <button className="pop-item" onClick={() => { app.setView('settings'); setOpen(false) }}><Icon name="sliders" size={15} /> Ajustes</button>
+          {app.isAuth && <button className="pop-item" onClick={() => { app.setView('settings'); setOpen(false) }}><Icon name="sliders" size={15} /> Ajustes</button>}
           <a className="pop-item" href="./help.html"><Icon name="info" size={15} /> Ayuda</a>
         </div>
       )}
@@ -156,7 +156,7 @@ export default function Sidebar() {
         <div className="nav-label"><span>ESPACIO DE TRABAJO</span></div>
         <NavItem icon="image" label="Biblioteca" active={view === 'library'} onClick={() => app.setView('library')} />
         <NavItem icon="chart" label="Estadísticas" active={view === 'stats'} onClick={() => app.setView('stats')} />
-        <NavItem icon="sliders" label="Ajustes" active={view === 'settings'} onClick={() => app.setView('settings')} />
+        {app.isAuth && <NavItem icon="sliders" label="Ajustes" active={view === 'settings'} onClick={() => app.setView('settings')} />}
       </div>
       <UserMenu />
     </aside>
@@ -167,7 +167,7 @@ export function MobileBar() {
   const app = useApp()
   const [more, setMore] = useState(false)
   const items = [['calendar', 'calendar', 'Calendario'], ['list', 'list', 'Publicaciones'], ['feed', 'grid', 'Feed'], ['requests', 'inbox', 'Peticiones']]
-  const extra = [['projects', 'folder', 'Proyectos'], ['library', 'image', 'Biblioteca'], ['stats', 'chart', 'Estadísticas'], ['settings', 'sliders', 'Ajustes']]
+  const extra = [['projects', 'folder', 'Proyectos'], ['library', 'image', 'Biblioteca'], ['stats', 'chart', 'Estadísticas'], ...(app.isAuth ? [['settings', 'sliders', 'Ajustes']] : [])]
   return (
     <>
       {more && (
