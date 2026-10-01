@@ -1,5 +1,6 @@
 // Prueba de integración del backend (Node + Postgres en memoria) contra un Meta simulado. Uso: node server/tests/e2e.mjs
 import crypto from 'node:crypto'
+import sharp from 'sharp'
 import { startMock } from './mock-meta.js'
 
 const APP = 'http://127.0.0.1:8900'; const MOCK = 'http://127.0.0.1:8901'
@@ -85,6 +86,20 @@ try {
   R = await post('destinations/publish', { id: R.destinations[0].id }); ok('solo texto no se publica', R.destination.status === 'failed')
   R = await pub('corfu|2026-09-29|png', { media: [`${MOCK}/files/foto.png`], destinations: [D(ACC)] })
   R = await post('destinations/publish', { id: R.destinations[0].id }); ok('PNG: se convierte a JPEG antes de enviarlo a Instagram', R.destination.status === 'published')
+
+  // formato de imagen: recorte / entera
+  const dims = async (u) => { const m = await sharp(Buffer.from(await (await fetch(u)).arrayBuffer())).metadata(); return [m.width, m.height] }
+  const fmtPub = async (name, media, extra) => { const r = await pub(`corfu|2026-09-29|${name}`, { media, destinations: [D(ACC)], ...extra }); const x = await post('destinations/publish', { id: r.destinations[0].id }); return x.destination }
+  let X = await fmtPub('fmt-orig', [`${MOCK}/files/ok.jpg`]); ok('original dentro de 4:5–1,91:1: se publica sin tocar', X.status === 'published')
+  let [w0, h0] = await dims(lastC().image_url); ok('…y mantiene sus proporciones (800×1000)', w0 === 800 && h0 === 1000)
+  X = await fmtPub('fmt-wide', [`${MOCK}/files/wide.jpg`]); [w0, h0] = await dims(lastC().image_url)
+  ok('original fuera de rango (panorámica 3,3:1): se deja entera con bandas hasta 1,91:1', X.status === 'published' && Math.abs(w0 / h0 - 1.91) < 0.02)
+  X = await fmtPub('fmt-sq-crop', [`${MOCK}/files/tall.jpg`], { image_ratio: '1:1', image_fit: 'crop' }); [w0, h0] = await dims(lastC().image_url)
+  ok('1:1 recortada: 400×400', X.status === 'published' && w0 === 400 && h0 === 400)
+  X = await fmtPub('fmt-45-fit', [`${MOCK}/files/wide.jpg`], { image_ratio: '4:5', image_fit: 'fit' }); [w0, h0] = await dims(lastC().image_url)
+  ok('4:5 entera (con bandas): 1000×1250', X.status === 'published' && w0 === 1000 && h0 === 1250)
+  R = await pub('corfu|2026-09-29|fmt-bad', { image_ratio: '7:3', destinations: [D(ACC)] }); ok('formato de imagen no válido rechazado', R.ok === false)
+  R = (await get('bootstrap')).publications.find((x) => x.ref.endsWith('fmt-sq-crop')); ok('el formato elegido se guarda y se devuelve', R.image_ratio === '1:1' && R.image_fit === 'crop')
 
   // scheduler por HTTP con CRON_SECRET (sin navegador)
   ok('cron sin secreto rechazado', (await fetch(`${APP}/api/cron`)).status === 401)

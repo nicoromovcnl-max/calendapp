@@ -14,6 +14,8 @@ import { HttpError, bodyOf, fail, queryOf, sendError, sendJson } from './http.js
 
 export const VERSION = '2.0.0'
 const TIPOS = ['imagen', 'video', 'reel', 'carrusel', 'historia', 'texto']
+const RATIOS = ['original', '1:1', '4:5', '1.91:1']
+const FITS = ['crop', 'fit']
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z')
 
 const need = (input, key) => {
@@ -115,6 +117,9 @@ const POST = {
     const tipo = String(input.tipo ?? 'imagen')
     if (!TIPOS.includes(tipo)) fail('invalid', 'Tipo de contenido no válido.', 422)
     const project = await projectOf(input)
+    const ratio = input.image_ratio === undefined || input.image_ratio === null || input.image_ratio === '' ? 'original' : String(input.image_ratio)
+    const fit = input.image_fit === undefined || input.image_fit === null || input.image_fit === '' ? 'fit' : String(input.image_fit)
+    if (!RATIOS.includes(ratio) || !FITS.includes(fit)) fail('invalid', 'Formato de imagen no válido.', 422)
     const media = (Array.isArray(input.media) ? input.media : []).map(String).filter((u) => /^https?:\/\//i.test(u))
     if (media.length > 10) fail('invalid', 'Un contenido admite un máximo de 10 archivos.', 422)
     const dests = []
@@ -133,7 +138,7 @@ const POST = {
       dests.push({ social_account_id: Number(acc.id), status, scheduled_at: when, timezone: d.timezone && validTz(String(d.timezone)) ? String(d.timezone) : null })
     }
     const out = await Repo.tx(async (q) => {
-      const pubId = await Repo.upsertPublication(q, ref, input.previous_ref ? String(input.previous_ref) : null, project, title, String(input.caption ?? ''), media, tipo)
+      const pubId = await Repo.upsertPublication(q, ref, input.previous_ref ? String(input.previous_ref) : null, project, title, String(input.caption ?? ''), media, tipo, ratio, fit)
       await Repo.syncChannels(q, pubId, dests)
       return { pubId, list: await Repo.channels(pubId, q) }
     })

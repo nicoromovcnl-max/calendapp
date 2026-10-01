@@ -47,16 +47,16 @@ export function token(acc) {
 }
 
 // ── Publicaciones y destinos ────────────────────────────────────────────
-export async function upsertPublication(q, ref, previousRef, projectId, title, caption, media, tipo) {
+export async function upsertPublication(q, ref, previousRef, projectId, title, caption, media, tipo, ratio = null, fit = null) {
   const t = now()
   let row = await one(q, 'SELECT id FROM publications WHERE ref = $1', [ref])
   if (!row && previousRef) row = await one(q, 'SELECT id FROM publications WHERE ref = $1', [previousRef])
   const mediaJson = JSON.stringify(media)
   if (row) {
-    await q('UPDATE publications SET ref = $1, project_id = $2, title = $3, caption = $4, media = $5, tipo = $6, updated_at = $7 WHERE id = $8', [ref, projectId, title, caption, mediaJson, tipo, t, row.id])
+    await q('UPDATE publications SET ref = $1, project_id = $2, title = $3, caption = $4, media = $5, tipo = $6, image_ratio = $7, image_fit = $8, updated_at = $9 WHERE id = $10', [ref, projectId, title, caption, mediaJson, tipo, ratio, fit, t, row.id])
     return Number(row.id)
   }
-  const r = await one(q, 'INSERT INTO publications (ref, project_id, title, caption, media, tipo, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING id', [ref, projectId, title, caption, mediaJson, tipo, t])
+  const r = await one(q, 'INSERT INTO publications (ref, project_id, title, caption, media, tipo, image_ratio, image_fit, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id', [ref, projectId, title, caption, mediaJson, tipo, ratio, fit, t])
   return Number(r.id)
 }
 
@@ -115,8 +115,8 @@ export const channelPublic = (r) => ({
 })
 
 // Contenido guardado en el servidor: permite mostrar publicaciones aunque la hoja no las tenga.
-export const publications = async () => (await query('SELECT ref, project_id, title, caption, tipo, media FROM publications ORDER BY id')).rows
-  .map((r) => ({ ref: r.ref, project_id: r.project_id, title: r.title, caption: r.caption, tipo: r.tipo, media: jsonOr(r.media, []) }))
+export const publications = async () => (await query('SELECT ref, project_id, title, caption, tipo, media, image_ratio, image_fit FROM publications ORDER BY id')).rows
+  .map((r) => ({ ref: r.ref, project_id: r.project_id, title: r.title, caption: r.caption, tipo: r.tipo, media: jsonOr(r.media, []), image_ratio: r.image_ratio, image_fit: r.image_fit }))
 
 export async function channels(publicationId = null, q = query) {
   const rows = publicationId
@@ -125,7 +125,7 @@ export async function channels(publicationId = null, q = query) {
   return rows.map(channelPublic)
 }
 
-export const channel = (id) => one(query, 'SELECT c.*, p.ref, p.title, p.caption, p.media, p.tipo, p.project_id FROM publication_channels c JOIN publications p ON p.id = c.publication_id WHERE c.id = $1', [Number(id) || 0])
+export const channel = (id) => one(query, 'SELECT c.*, p.ref, p.title, p.caption, p.media, p.tipo, p.project_id, p.image_ratio, p.image_fit FROM publication_channels c JOIN publications p ON p.id = c.publication_id WHERE c.id = $1', [Number(id) || 0])
 
 // Reserva atómica: evita que dos procesos publiquen el mismo destino.
 export async function claim(id, resume = false) {

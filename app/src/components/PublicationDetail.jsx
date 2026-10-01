@@ -163,6 +163,7 @@ export default function PublicationDetail() {
           <div className="detail-actions">
             <button className="btn btn-primary" onClick={() => app.requireAuth(() => app.setEditing(pub))}><Icon name="edit" size={14} /> Editar</button>
             {!locked && <button className="btn" onClick={() => app.requireAuth(() => app.setEditing(pub))}><Icon name="clock" size={14} /> Programar</button>}
+            <button className="btn" onClick={() => app.requireAuth(() => app.duplicatePublication(pub))}><Icon name="copy" size={14} /> Duplicar</button>
             {canRunAll && <button className="btn btn-accent" disabled={app.social.busy} onClick={() => app.publishPublicationNow(pub)}><Icon name="send" size={14} /> Publicar ahora</button>}
             {app.isAuth && !locked && !confirmDel && <button className="btn btn-ghost" onClick={() => setConfirmDel(true)}><Icon name="trash" size={14} /> Eliminar</button>}
             {confirmDel && <span className="confirm-inline"><span>¿Eliminar esta publicación?</span><button className="btn btn-sm btn-danger" onClick={() => app.deletePublication(pub)}>Sí, eliminar</button><button className="btn btn-sm btn-ghost" onClick={() => setConfirmDel(false)}>No</button></span>}

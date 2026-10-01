@@ -74,9 +74,30 @@ export function MediaField({ value, onChange, scriptUrl }) {
   )
 }
 
+// ── Formato de la imagen (recorte) ────────────────────────────────────────
+// Instagram solo admite imágenes entre 4:5 y 1,91:1. El recorte se hace en el servidor al publicar.
+export const IMAGE_RATIOS = [['original', 'Original'], ['1:1', 'Cuadrado 1:1'], ['4:5', 'Vertical 4:5'], ['1.91:1', 'Horizontal 1,91:1']]
+const ratioOf = (sel, natural) => ({ '1:1': 1, '4:5': 0.8, '1.91:1': 1.91 }[sel] ?? Math.min(1.91, Math.max(0.8, natural || 1)))
+
+function useNaturalRatio(media) {
+  const src = thumbOf(media)
+  const [r, setR] = useState(null)
+  useEffect(() => {
+    setR(null)
+    if (!src) return undefined
+    const i = new Image()
+    i.onload = () => setR(i.naturalWidth && i.naturalHeight ? i.naturalWidth / i.naturalHeight : null)
+    i.src = src
+    return undefined
+  }, [src])
+  return r
+}
+
 // ── Previsualización ──────────────────────────────────────────────────────
 export function PostPreview({ form, accountHandle }) {
   const app = useApp()
+  const natural = useNaturalRatio(splitMedia(form.media)[0])
+  const isFeedImage = ['imagen', 'carrusel'].includes(form.tipo) && splitMedia(form.media).length > 0
   const canal = (form.canal || 'Instagram').toLowerCase()
   const handle = accountHandle || app.accountOf(form.proyecto)?.handle || (form.proyecto || 'tu_proyecto').toLowerCase().replace(/[^a-z0-9]+/g, '')
   const first = splitMedia(form.media)[0]
@@ -117,7 +138,9 @@ export function PostPreview({ form, accountHandle }) {
   return (
     <div className="phone">
       {head(form.tipo === 'reel' ? 'Reel' : 'Ahora')}
-      {media('')}
+      {isFeedImage
+        ? <div className={`p-media ${form.image_fit === 'crop' ? '' : 'contain'}`} style={{ aspectRatio: ratioOf(form.image_ratio, natural) }}><Cover media={first} tipo={form.tipo} iconSize={36} />{n > 1 && <span className="mc-count" style={{ position: 'absolute', top: 10, right: 10 }}>1/{n}</span>}</div>
+        : media('')}
       <div className="p-actions"><Icon name="heart" size={20} /><Icon name="message" size={20} /><Icon name="send" size={20} /><span className="sp"><Icon name="bookmark" size={20} /></span></div>
       <div className="p-copy">{copy ? <><b>{handle}</b>{copy}</> : placeholder}</div>
     </div>
@@ -125,12 +148,15 @@ export function PostPreview({ form, accountHandle }) {
 }
 
 // ── Destinos: cuentas donde se publicará ──────────────────────────────────
-function DestinationPicker({ app, project, selected, setSelected, existing, disabledReason }) {
+function DestinationPicker({ app, project, selected, setSelected, existing, disabledReason, onPick }) {
   const accounts = useMemo(() => {
     const own = app.accounts.filter((a) => a.proyecto === project)
     return [...own, ...app.accounts.filter((a) => a.proyecto !== project)]
   }, [app.accounts, project])
-  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggle = (id) => {
+    if (!selected.has(id)) onPick?.(app.accountById(id)) // al marcar una cuenta se completa el proyecto si falta
+    setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
   return (
     <div className="field">
       <span className="label">Cuentas de destino</span>
@@ -160,28 +186,34 @@ function DestinationPicker({ app, project, selected, setSelected, existing, disa
 }
 
 // ── Editor ────────────────────────────────────────────────────────────────
-const EMPTY = { proyecto: '', fecha: '', titulo: '', copy: '', media: '', tipo: 'imagen', canal: 'Instagram', estado: 'Programado', url_post: '', promocionado: false, presupuesto: '' }
+const EMPTY = { proyecto: '', fecha: '', titulo: '', copy: '', media: '', tipo: 'imagen', canal: 'Instagram', estado: 'Programado', url_post: '', promocionado: false, presupuesto: '', image_ratio: 'original', image_fit: 'fit' }
+
+// La hoja puede traer el canal vacío o en minúsculas: se normaliza para que no se confunda con un canal sin integración.
+const normCanal = (c) => (!c || String(c).trim().toLowerCase() === 'instagram' ? 'Instagram' : c)
 
 export default function Editor() {
   const app = useApp()
   const pub = app.editing === 'new' ? null : app.editing
-  const isNew = !pub
-  const existing = useMemo(() => new Map((pub?.destinos || []).map((d) => [d.accountId, d])), [pub])
-  const [form, setForm] = useState(() => isNew
+  const isDup = !!pub?.isDuplicate // «Duplicar»: se edita como una publicación nueva con el contenido copiado
+  const isNew = !pub || isDup
+  const existing = useMemo(() => (isDup ? new Map() : new Map((pub?.destinos || []).map((d) => [d.accountId, d]))), [pub, isDup])
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [form, setForm] = useState(() => !pub
     ? { ...EMPTY, proyecto: app.projectsFilter.length === 1 ? app.projectsFilter[0] : (app.account?.proyecto || ''), fecha: toInputDate(app.newPubDate || new Date()) }
     : {
       proyecto: pub.proyecto || '', fecha: toInputDate(pub.fecha), titulo: pub.titulo || '', copy: pub.copy || '', media: pub.media || '',
-      tipo: pub.tipo || 'imagen', canal: pub.canal || '', estado: pub.estado || '', url_post: pub.url_post || '',
+      tipo: pub.tipo || 'imagen', canal: normCanal(pub.canal), estado: isDup ? '' : pub.estado || '', url_post: pub.url_post || '',
       promocionado: (pub.promocionado || 'No').toLowerCase().startsWith('s'), presupuesto: pub.presupuesto || '',
+      image_ratio: pub.image_ratio || 'original', image_fit: pub.image_fit || 'fit',
     })
   const [selected, setSelected] = useState(() => new Set((pub?.destinos || []).filter((d) => d.status !== 'cancelled').map((d) => d.accountId)))
   const [touched, setTouched] = useState(false)
   const firstScheduled = (pub?.destinos || []).find((x) => x.scheduledAt)
-  const [hora, setHora] = useState(() => (firstScheduled ? destTime(firstScheduled) : ''))
+  const [hora, setHora] = useState(() => (firstScheduled ? destTime(firstScheduled) : pub?.hora || ''))
   const [tz, setTz] = useState(() => firstScheduled?.timezone || defaultTz())
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState('')
-  const previousRef = useMemo(() => (pub ? pubRef(pub) : null), [pub])
+  const previousRef = useMemo(() => (pub && !isDup ? pubRef(pub) : null), [pub, isDup])
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const setMedia = useCallback((v) => setForm((f) => ({ ...f, media: v })), [])
   const close = () => { app.setEditing(null); app.setNewPubDate(null) }
@@ -251,13 +283,14 @@ export default function Editor() {
   const canPublishNow = usesDestinations && pickedAccounts.some((a) => (app.demo || app.canPublish(a)) && existing.get(a.id)?.status !== 'published')
   const publishWhy = !valid ? 'Completa proyecto, fecha y título.' : form.canal !== 'Instagram' ? 'Este canal solo se registra en el calendario.' : disabledReason || (noAccounts ? needAccount : !usesDestinations ? 'Elige una cuenta de destino.' : '')
   const busyLabel = saving ? 'Guardando…' : null
+  const locked = !isNew && (pub.destinos || []).some((d) => ['published', 'publishing'].includes(d.status))
 
   return (
     <Modal onClose={close} size="editor">
       <div className="dialog-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="icon-btn" onClick={close} aria-label="Cerrar"><Icon name="x" size={16} /></button>
-          <div><h2>{isNew ? 'Nueva publicación' : 'Editar publicación'}</h2><small>{isNew ? 'Se añadirá a la hoja de publicaciones' : 'Los cambios se guardan en la hoja'}</small></div>
+          <div><h2>{isDup ? 'Duplicar publicación' : isNew ? 'Nueva publicación' : 'Editar publicación'}</h2><small>{isDup ? 'Se creará una publicación nueva con este contenido' : isNew ? 'Se añadirá a la hoja de publicaciones' : 'Los cambios se guardan en la hoja'}</small></div>
         </div>
       </div>
 
@@ -290,6 +323,7 @@ export default function Editor() {
                 </div>
               </div>
               <DestinationPicker app={app} project={form.proyecto} selected={selected} existing={existing} disabledReason={disabledReason}
+                onPick={(a) => { if (!form.proyecto && a?.proyecto) set('proyecto', a.proyecto) }}
                 setSelected={(fn) => { setTouched(true); setSelected(fn) }} />
             </div>
 
@@ -311,6 +345,19 @@ export default function Editor() {
             <div className="form-section">
               <span className="label">Archivo multimedia</span>
               <MediaField value={form.media} onChange={setMedia} scriptUrl={app.config.requestsScriptUrl} />
+              {['imagen', 'carrusel'].includes(form.tipo) && (
+                <div className="field" style={{ marginTop: 'var(--s4)' }}>
+                  <span className="label">Formato de la imagen</span>
+                  <div className="chip-group">{IMAGE_RATIOS.map(([k, l]) => <button type="button" key={k} className={`chip ${form.image_ratio === k ? 'on' : ''}`} aria-pressed={form.image_ratio === k} onClick={() => set('image_ratio', k)}>{l}</button>)}</div>
+                  <div className="segmented" role="group" aria-label="Ajuste" style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+                    <button type="button" className={form.image_fit === 'crop' ? 'on' : ''} onClick={() => set('image_fit', 'crop')}>Recortada</button>
+                    <button type="button" className={form.image_fit !== 'crop' ? 'on' : ''} onClick={() => set('image_fit', 'fit')}>Entera (con bandas)</button>
+                  </div>
+                  <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
+                    {form.tipo === 'carrusel' ? 'En un carrusel todas las imágenes deben tener el mismo formato: elige 1:1 o 4:5. ' : ''}Instagram solo admite imágenes entre 4:5 y 1,91:1; si la tuya queda fuera se deja entera con bandas blancas. El ajuste se aplica al publicar.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="form-section">
@@ -355,6 +402,9 @@ export default function Editor() {
       <div className="editor-foot">
         <span className="hint" role="status" style={problem ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{problem || (publishWhy && !canPublishNow ? publishWhy : app.demo ? 'Modo demo: publicar y conectar son simulaciones.' : ' ')}</span>
         <div className="page-actions">
+          {!isNew && (confirmDel
+            ? <span className="confirm-inline"><span>¿Eliminar?</span><button className="btn btn-sm btn-danger" disabled={saving} onClick={async () => { if (await app.deletePublication(pub)) close() }}>Sí, eliminar</button><button className="btn btn-sm btn-ghost" onClick={() => setConfirmDel(false)}>No</button></span>
+            : <button className="btn btn-ghost btn-danger" disabled={saving} onClick={() => (locked ? app.toast.error('Esta publicación ya está en Instagram. Meta no permite borrarla desde la API: elimínala desde la app de Instagram.') : setConfirmDel(true))}><Icon name="trash" size={14} /> Eliminar</button>)}
           <button className="btn btn-ghost" onClick={close}>Cancelar</button>
           {isNew
             ? <button className="btn" disabled={!valid || saving} onClick={() => save('Borrador')}>{busyLabel || 'Guardar borrador'}</button>

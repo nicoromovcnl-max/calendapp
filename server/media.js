@@ -14,14 +14,19 @@ export function normalizeSource(url) {
 const b64 = (s) => Buffer.from(s).toString('base64url')
 const unb64 = (s) => Buffer.from(s, 'base64url').toString()
 
-export function relayUrl(source, req, ttl = 3600) {
+// opts.ratio / opts.fit: formato de imagen (original|1:1|4:5|1.91:1 y crop|fit). Forman parte de la firma.
+export function relayUrl(source, req, ttl = 3600, opts = {}) {
   const u = b64(normalizeSource(source))
   const e = Math.floor(Date.now() / 1000) + ttl
-  return `${cfg.appUrl(req)}api/media?${new URLSearchParams({ u, e: String(e), s: cryptoBox.sign(`${u}|${e}`) })}`
+  const r = opts.ratio || ''
+  const f = r ? opts.fit || 'fit' : ''
+  const q = { u, e: String(e), s: cryptoBox.sign(`${u}|${e}|${r}|${f}`) }
+  if (r) { q.r = r; q.f = f }
+  return `${cfg.appUrl(req)}api/media?${new URLSearchParams(q)}`
 }
 
-export function verify(u, e, s) {
-  if (!u || !s || e < Date.now() / 1000 || !cryptoBox.safeEqual(cryptoBox.sign(`${u}|${e}`), s)) return null
+export function verify(u, e, s, r = '', f = '') {
+  if (!u || !s || e < Date.now() / 1000 || !cryptoBox.safeEqual(cryptoBox.sign(`${u}|${e}|${r}|${f}`), s)) return null
   return unb64(u)
 }
 
