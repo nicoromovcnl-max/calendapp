@@ -1,0 +1,16 @@
+{
+  "projects": [
+    { "id": "temeraria", "name": "TEMERARIA", "aliases": ["CLUB TEMERARIA"], "color": { "bg": "#F5EEFB", "text": "#5B2A86", "dot": "#8E5BC9" } },
+    { "id": "ticketea", "name": "TICKETEA", "aliases": ["TICKETEA LA OFICIAL"], "color": { "bg": "#EAF1FC", "text": "#1E3F8A", "dot": "#3B72D9" } },
+    { "id": "prevenidos", "name": "PREVENIDOS Y ACCIÓN", "aliases": ["PREVENIDOS Y ACCION"], "color": { "bg": "#EEF6E3", "text": "#3A5A12", "dot": "#7DAE2A" } },
+    { "id": "chandrio", "name": "EL CHANDRIO GROUP", "aliases": ["EL CHANDRÍO GROUP"], "color": { "bg": "#FBF1E0", "text": "#7A4A0A", "dot": "#C5842A" } },
+    { "id": "corfu", "name": "TEATRO CORFÚ", "aliases": ["TEATRO CORFU"], "color": { "bg": "#FBE9EF", "text": "#8A1F4A", "dot": "#D2467A" } }
+  ],
+  "accounts": [
+    { "platform": "instagram", "username": "clubtemeraria", "projectId": "temeraria" },
+    { "platform": "instagram", "username": "ticketealaoficial", "projectId": "ticketea" },
+    { "platform": "instagram", "username": "prevenidosyaccion", "projectId": "prevenidos" },
+    { "platform": "instagram", "username": "elchandriogroup", "projectId": "chandrio" },
+    { "platform": "instagram", "username": "teatrocorfu7", "projectId": "corfu" }
+  ]
+}

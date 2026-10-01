@@ -1,0 +1,8 @@
+# Solo index.php, instagram-callback.php y media.php son accesibles desde la web.
+Options -Indexes
+<FilesMatch "\.(php|json|sqlite|sqlite3|db|log|md|example)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^(index|instagram-callback|media)\.php$">
+  Require all granted
+</FilesMatch>
