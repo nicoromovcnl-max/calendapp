@@ -1,7 +1,8 @@
 // Configuración solo por variables de entorno (en Vercel: Project → Settings → Environment Variables).
+// Se recortan espacios y saltos de línea (error típico al pegar valores en Vercel).
 export const get = (key, fallback = '') => {
-  const v = process.env[key]
-  return v !== undefined && v !== '' ? String(v) : fallback
+  const v = process.env[key] === undefined ? '' : String(process.env[key]).trim()
+  return v !== '' ? v : fallback
 }
 
 export const graphVersion = () => get('META_GRAPH_VERSION', 'v25.0')
