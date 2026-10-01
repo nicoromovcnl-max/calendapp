@@ -4,7 +4,7 @@ export class ApiError extends Error {
   constructor(code, message, status) { super(message); this.code = code; this.status = status }
 }
 
-const ENDPOINT = 'api/index.php'
+const ENDPOINT = 'api/index'
 
 export async function api(route, { method = 'GET', body, timeout = 20000 } = {}) {
   const ctl = new AbortController()

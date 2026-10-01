@@ -1,7 +1,7 @@
 # Despliegue en Vercel + Neon + GitHub
 
 CalendApp se despliega como sitio estático (`index.html`) más funciones de Node en `/api` (carpeta `server/`), con Postgres en Neon.
-El backend PHP de `api/` (`*.php`) se conserva como referencia para hosting con PHP y **no** se despliega en Vercel (`.vercelignore`).
+El backend PHP de `api/` (`*.php`) se conserva como referencia para hosting con PHP y **no** se despliega en Vercel (`.vercelignore`). La web llama a `/api/index` (sin `.php`, porque Vercel bloquea las rutas `.php`).
 
 ## 1. Neon (base de datos)
 1. Crea un proyecto en neon.tech y copia la cadena de conexión **pooled** (`…-pooler…?sslmode=require`).
@@ -11,7 +11,7 @@ El backend PHP de `api/` (`*.php`) se conserva como referencia para hosting con 
 1. *Add New → Project* → importa `nicoromovcnl-max/calendapp`. Framework: *Other*. Sin comando de build.
 2. En *Settings → Environment Variables* define (ver `.env.example`):
    `DATABASE_URL`, `APP_KEY`, `ADMIN_PASSWORD`, `CRON_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`, `APP_URL`.
-3. Despliega. Abre `https://TU-DOMINIO/api/index.php?r=status`: cada bandera de `configured` debe estar en `true`.
+3. Despliega. Abre `https://TU-DOMINIO/api/index?r=status`: cada bandera de `configured` debe estar en `true`.
 
 ## 3. App de Meta
 - Producto: *API de Instagram con inicio de sesión de Instagram*.

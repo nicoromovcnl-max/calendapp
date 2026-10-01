@@ -18,9 +18,9 @@ const ok = (name, cond) => { console.log(cond ? 'PASS' : 'FAIL', name); cond ? p
 let cookie = ''
 const H = () => ({ 'Content-Type': 'application/json', 'X-CalendApp': '1', ...(cookie ? { Cookie: cookie } : {}) })
 const keep = (r) => { const c = r.headers.get('set-cookie'); if (c) cookie = c.split(';')[0].endsWith('=') ? '' : c.split(';')[0] }
-const post = async (route, body = {}) => { const r = await fetch(`${APP}/api/index.php?r=${route}`, { method: 'POST', headers: H(), body: JSON.stringify(body) }); keep(r); return r.json() }
-const get = async (route) => (await fetch(`${APP}/api/index.php?r=${route}`, { headers: cookie ? { Cookie: cookie } : {} })).json()
-const status = async (route, opts) => (await fetch(`${APP}/api/index.php?r=${route}`, opts)).status
+const post = async (route, body = {}) => { const r = await fetch(`${APP}/api/index?r=${route}`, { method: 'POST', headers: H(), body: JSON.stringify(body) }); keep(r); return r.json() }
+const get = async (route) => (await fetch(`${APP}/api/index?r=${route}`, { headers: cookie ? { Cookie: cookie } : {} })).json()
+const status = async (route, opts) => (await fetch(`${APP}/api/index?r=${route}`, opts)).status
 const callback = async (qs) => (await fetch(`${APP}/api/instagram-callback?${qs}`, { redirect: 'manual', headers: cookie ? { Cookie: cookie } : {} })).headers.get('location') || ''
 const cron = async (job = 'publish') => (await fetch(`${APP}/api/cron?job=${job}`, { headers: { Authorization: 'Bearer cron-test' } })).json()
 const acct = async (u) => (await get('bootstrap')).accounts.find((a) => a.username === u)
