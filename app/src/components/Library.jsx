@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { splitMedia } from '../lib/data.js'
-import { Cover, DemoBanner, Empty, Icon, PageHead } from './ui.jsx'
+import { Cover, DemoBanner, Empty, Icon, PageHead, Select } from './ui.jsx'
 
 const isVideo = (u) => /youtu|\.(mp4|mov|webm)/i.test(u)
 
@@ -23,8 +23,8 @@ export default function Library() {
       <DemoBanner />
       <div className="toolbar">
         <div className="search"><Icon name="search" size={15} /><input className="input" placeholder="Buscar por título…" aria-label="Buscar en la biblioteca" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <select className="select filters-select" value={project} onChange={(e) => setProject(e.target.value)} aria-label="Proyecto"><option value="">Todos los proyectos</option>{[...new Set(assets.map((a) => a.pub.proyecto))].sort().map((p) => <option key={p}>{p}</option>)}</select>
-        <select className="select filters-select" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Tipo"><option value="">Imágenes y vídeos</option><option value="image">Solo imágenes</option><option value="video">Solo vídeos</option></select>
+        <Select className="select filters-select" value={project} onChange={(e) => setProject(e.target.value)} aria-label="Proyecto"><option value="">Todos los proyectos</option>{[...new Set(assets.map((a) => a.pub.proyecto))].sort().map((p) => <option key={p}>{p}</option>)}</Select>
+        <Select className="select filters-select" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Tipo"><option value="">Imágenes y vídeos</option><option value="image">Solo imágenes</option><option value="video">Solo vídeos</option></Select>
       </div>
       {rows.length === 0 ? <div className="card"><Empty icon="image" title="Sin archivos">Los archivos que subas a publicaciones y peticiones aparecerán aquí.</Empty></div> : (
         <div className="library-grid">

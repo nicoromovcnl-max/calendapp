@@ -10,6 +10,7 @@ import * as Platforms from './platforms.js'
 import * as Publisher from './publisher.js'
 import { now } from './db.js'
 import { MetaException } from './meta-exception.js'
+import { publishDue } from './cron.js'
 import { HttpError, bodyOf, fail, queryOf, sendError, sendJson } from './http.js'
 
 export const VERSION = '2.0.0'
@@ -35,7 +36,7 @@ async function bootstrap(req, res) {
   const authed = Auth.check(req)
   sendJson(res, {
     ok: true, backend: true, version: VERSION, configured: cfg.flags(), authenticated: authed,
-    projects: await Repo.projects(), platforms: Platforms.all(), accounts: await Repo.accounts(),
+    projects: await Repo.projects(), platforms: Platforms.all(), accounts: await Repo.accounts(), scheduler: authed ? await Repo.schedulerInfo() : null,
     publications: authed ? await Repo.publications() : [], destinations: authed ? await Repo.channels() : [], events: authed ? await Repo.events() : [],
   })
 }
@@ -158,6 +159,11 @@ const POST = {
     await Repo.updateChannel(ch.id, { status: 'cancelled', error_message: null })
     await Repo.logEvent(ch.id, 'cancelled', 'Cancelado')
     sendJson(res, { ok: true })
+  },
+
+  // Publica ahora lo programado cuya hora ya pasó (respaldo del programador externo; el cron sigue siendo el principal).
+  async 'scheduler/run'(req, res) {
+    sendJson(res, { ok: true, results: await publishDue(req, 40000) })
   },
 
   async 'publications/delete'(req, res, input) {

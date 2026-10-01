@@ -3,7 +3,7 @@ import { useApp } from '../store.jsx'
 import { PUBLICATIONS_CSV, REQUESTS_CSV, SCRIPT_URL, fmtFull, fmtShort, isPendingRequest, splitMedia, timeAgo } from '../lib/data.js'
 import { lsSet } from '../lib/storage.js'
 import { prettyProject } from '../lib/projects.js'
-import { AccountStatusBadge, ChannelTile, DemoBanner, Icon, Menu, PageHead, ProjectAvatar, StatusBadge, Thumb } from './ui.jsx'
+import { AccountStatusBadge, ChannelTile, DemoBanner, Icon, Menu, PageHead, ProjectAvatar, StatusBadge, Thumb, Select } from './ui.jsx'
 
 const TABS = [['cuenta', 'Cuenta'], ['equipo', 'Equipo'], ['proyectos', 'Proyectos'], ['integraciones', 'Integraciones'], ['notificaciones', 'Notificaciones']]
 const NAME_KEY = 'pubcal_solicitante'
@@ -25,6 +25,27 @@ const Row = ({ icon, title, sub, children }) => (
     {children}
   </div>
 )
+
+// ── Programador: ¿se está ejecutando el cron que publica lo programado? ────
+function SchedulerRow() {
+  const app = useApp()
+  const sch = app.social.scheduler
+  const last = sch.last_run ? new Date(sch.last_run) : null
+  const mins = last ? (Date.now() - last.getTime()) / 60000 : null
+  const state = last && mins <= 15 ? ['green', 'Activo'] : last ? ['amber', 'Retrasado'] : sch.upcoming || sch.overdue ? ['red', 'Sin ejecutar'] : ['no-dot', 'Sin uso']
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true)
+    try { const r = await app.social.runScheduler(); app.toast.success(r.results?.length ? `Procesadas ${r.results.length} publicaciones vencidas` : 'No había nada vencido') } catch (e) { app.toast.error(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <Row icon={<div className="integration-icon" style={{ background: 'var(--ink)' }}><Icon name="clock" size={19} /></div>} title="Programador de publicaciones"
+      sub={`${last ? `Última ejecución ${timeAgo(last)}` : 'Todavía no se ha ejecutado'} · ${sch.upcoming} programadas · ${sch.overdue} vencidas${state[0] !== 'green' && (sch.upcoming || sch.overdue) ? ' · Configura el cron externo (DEPLOY-VERCEL.md)' : ''}`}>
+      <span className={`badge ${state[0]}`}>{state[1]}</span>
+      {sch.overdue > 0 && <button className="btn btn-sm btn-primary" disabled={busy} onClick={run}>{busy ? 'Publicando…' : 'Publicar vencidas ahora'}</button>}
+    </Row>
+  )
+}
 
 // ── Servidor de CalendApp (OAuth, cuentas y publicación) ──────────────────
 function ServerGroup() {
@@ -49,6 +70,7 @@ function ServerGroup() {
           {flags.some(([k]) => !cfg[k]) && <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>Faltan variables de entorno en el servidor (en Vercel: Settings → Environment Variables). Consulta DEPLOY-VERCEL.md.</p>}
         </div>
       )}
+      {backend.state === 'online' && backend.authenticated && app.social.scheduler && <SchedulerRow />}
       {backend.state === 'online' && backend.authenticated && (
         <Row title="Sesión de administración activa" sub="Entraste con el acceso del equipo: puedes conectar cuentas, programar y publicar. Dura 12 horas."><button className="btn btn-sm" onClick={app.logout}>Cerrar sesión</button></Row>
       )}
@@ -64,9 +86,9 @@ function AddAccount() {
   return (
     <form className="row-item add-account" onSubmit={async (e) => { e.preventDefault(); try { await app.social.addAccount({ username, projectId }); setUsername(''); setProjectId(''); app.toast.success('Cuenta añadida. Conéctala para poder publicar.') } catch { /* el error ya se muestra */ } }}>
       <input className="input" placeholder="@usuario" aria-label="Usuario de Instagram" value={username} onChange={(e) => setUsername(e.target.value)} />
-      <select className="select" aria-label="Proyecto" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+      <Select className="select" aria-label="Proyecto" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
         <option value="">Proyecto…</option>{app.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
+      </Select>
       <button className="btn" type="submit" disabled={!username.trim()}><Icon name="plus" size={14} /> Añadir</button>
     </form>
   )
@@ -99,10 +121,10 @@ function InstagramGroup({ platform }) {
               <b>@{a.handle}</b>
               <small>{a.metadata?.account_type ? `${a.metadata.account_type} · ` : ''}{a.status === 'connected' && exp ? `Token válido hasta ${fmtFull(exp)}` : a.lastError || (a.status === 'demo' ? 'Cuenta de ejemplo' : 'Sin credenciales guardadas')}</small>
             </div>
-            <select className="select project-select" aria-label={`Proyecto de @${a.handle}`} value={a.projectId || ''} disabled={!ready || busy || app.demo}
+            <Select className="select project-select" aria-label={`Proyecto de @${a.handle}`} value={a.projectId || ''} disabled={!ready || busy || app.demo}
               onChange={(e) => app.social.setAccountProject(a.id, e.target.value)}>
               <option value="">Sin proyecto</option>{app.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
             {live(a)
               ? <span className="conn-dot"><i />{a.status === 'demo' ? 'Conectado (demo)' : 'Conectado'}</span>
               : <AccountStatusBadge status={a.status} />}

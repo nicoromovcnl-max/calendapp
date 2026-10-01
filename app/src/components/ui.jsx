@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { Children, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { initials, isVideoFile, isVideoUrl, projectColor, splitMedia, thumbOf } from '../lib/data.js'
 import { useApp } from '../store.jsx'
 import { ACCOUNT_STATUS } from '../lib/social.jsx'
@@ -26,6 +27,7 @@ const P = {
   filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
   bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  camera: '<path d="M14.5 4h-5L8 6H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/>',
   trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   edit: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
@@ -182,6 +184,62 @@ export function useOutside(ref, onOut) {
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [ref, onOut])
+}
+
+
+// ── Desplegable propio (mismo aspecto en toda la app, sustituye al <Select> nativo) ───────────
+// Acepta <option> como hijos y llama a onChange({ target: { value } }) para no cambiar los usos existentes.
+const textOf = (n) => (typeof n === 'string' || typeof n === 'number' ? String(n) : Array.isArray(n) ? n.map(textOf).join('') : n?.props ? textOf(n.props.children) : '')
+export function Select({ id, className = '', value, onChange, disabled, children, placeholder = '', 'aria-label': ariaLabel }) {
+  const options = Children.toArray(children).filter((c) => c?.type === 'option').map((c) => ({ value: String(c.props.value ?? textOf(c.props.children)), label: textOf(c.props.children), disabled: !!c.props.disabled }))
+  const btn = useRef(null)
+  const list = useRef(null)
+  const [pos, setPos] = useState(null)
+  const [hi, setHi] = useState(-1)
+  const current = options.find((o) => o.value === String(value ?? ''))
+  const close = () => setPos(null)
+  const open = () => {
+    if (disabled) return
+    const r = btn.current.getBoundingClientRect()
+    const below = window.innerHeight - r.bottom
+    const h = Math.min(320, options.length * 36 + 12)
+    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, 200) - 8)), width: Math.max(r.width, 200), top: below < h + 12 && r.top > below ? undefined : r.bottom + 6, bottom: below < h + 12 && r.top > below ? window.innerHeight - r.top + 6 : undefined })
+    setHi(options.findIndex((o) => o.value === String(value ?? '')))
+  }
+  useEffect(() => {
+    if (!pos) return undefined
+    const out = (e) => { if (!list.current?.contains(e.target) && !btn.current?.contains(e.target)) close() }
+    const key = (e) => {
+      if (['Escape', 'ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) e.stopPropagation() // que no cierre el diálogo que lo contiene
+      if (e.key === 'Escape') { close(); btn.current?.focus() } else if (e.key === 'ArrowDown') { e.preventDefault(); setHi((i) => Math.min(options.length - 1, i + 1)) } else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((i) => Math.max(0, i - 1)) } else if (e.key === 'Enter' && hi >= 0) { e.preventDefault(); pick(options[hi]) }
+    }
+    document.addEventListener('mousedown', out)
+    document.addEventListener('keydown', key, true)
+    window.addEventListener('resize', close)
+    const scroll = (e) => { if (!list.current?.contains(e.target)) close() } // el desplazamiento de la propia lista no la cierra
+    document.addEventListener('scroll', scroll, true)
+    return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', key, true); window.removeEventListener('resize', close); document.removeEventListener('scroll', scroll, true) }
+  })
+  useEffect(() => { if (pos && hi >= 0) list.current?.querySelector(`[data-i="${hi}"]`)?.scrollIntoView({ block: 'nearest' }) }, [hi, pos])
+  const pick = (o) => { if (o.disabled) return; close(); btn.current?.focus(); if (o.value !== String(value ?? '')) onChange?.({ target: { value: o.value } }) }
+  const filters = className.includes('filters-select')
+  return (
+    <div className={`menu-wrap ${filters ? '' : 'select-wrap'}`}>
+      <button type="button" ref={btn} id={id} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={!!pos} disabled={disabled} className={`select select-btn ${className}`} onClick={() => (pos ? close() : open())}
+        onKeyDown={(e) => { if (!pos && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); open() } }}>
+        <span className={current ? '' : 'ph'}>{current ? current.label : placeholder || '\u00a0'}</span>
+      </button>
+      {pos && createPortal(
+        <div ref={list} className="popover select-pop" role="listbox" style={{ position: 'fixed', left: pos.left, top: pos.top ?? 'auto', bottom: pos.bottom ?? 'auto', width: pos.width }}>
+          {options.map((o, i) => (
+            <button type="button" key={`${o.value}-${i}`} data-i={i} role="option" aria-selected={o.value === String(value ?? '')} disabled={o.disabled}
+              className={`pop-item ${o.value === String(value ?? '') ? 'on' : ''} ${i === hi ? 'hi' : ''}`} onMouseEnter={() => setHi(i)} onClick={() => pick(o)}>
+              <span className="trunc">{o.label || '\u00a0'}</span>{o.value === String(value ?? '') && <Icon name="check" size={14} style={{ marginLeft: 'auto', color: 'var(--accent-600)' }} />}
+            </button>
+          ))}
+        </div>, document.body)}
+    </div>
+  )
 }
 
 export function ProjectFilter({ projects, value, onChange }) {

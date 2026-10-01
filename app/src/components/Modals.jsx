@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { lsGet, lsRemove, lsSet } from '../lib/storage.js'
 import { useApp } from '../store.jsx'
 import { CHANNELS, PRIORIDADES, REQ_ESTADOS, TIPOS, scriptUpdateRequest, toInputDate } from '../lib/data.js'
-import { ChannelTile, Icon, Modal, tipoIcon } from './ui.jsx'
+import { ChannelTile, Icon, Modal, tipoIcon, Select } from './ui.jsx'
 import { MediaField } from './Editor.jsx'
 
 const NAME_KEY = 'pubcal_solicitante'
@@ -86,9 +86,9 @@ export function RequestForm() {
         <div className="dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="field-row">
             <div className="field"><label htmlFor="r-proy">Proyecto *</label>
-              <select id="r-proy" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
+              <Select id="r-proy" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
                 <option value="">Selecciona…</option>{app.projectNames.map((p) => <option key={p}>{p}</option>)}
-              </select>
+              </Select>
             </div>
             <div className="field"><label htmlFor="r-fecha">Fecha deseada *</label><input id="r-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
           </div>
@@ -155,14 +155,14 @@ export function RequestEdit() {
       <Head title="Editar petición" sub={req.proyecto} onClose={close} />
       <div className="dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="field-row">
-          <div className="field"><label>Proyecto</label><select className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>{[...new Set([...app.projectNames, form.proyecto])].map((p) => <option key={p}>{p}</option>)}</select></div>
-          <div className="field"><label>Estado</label><select className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>{REQ_ESTADOS.map((s) => <option key={s}>{s}</option>)}</select></div>
+          <div className="field"><label>Proyecto</label><Select className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>{[...new Set([...app.projectNames, form.proyecto])].map((p) => <option key={p}>{p}</option>)}</Select></div>
+          <div className="field"><label>Estado</label><Select className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>{REQ_ESTADOS.map((s) => <option key={s}>{s}</option>)}</Select></div>
         </div>
         <div className="field"><label>Título</label><input className="input" value={form.titulo} onChange={(e) => set('titulo', e.target.value)} /></div>
         <div className="field"><label>Información adicional</label><textarea className="textarea" value={form.info} onChange={(e) => set('info', e.target.value)} /></div>
         <div className="field-row">
           <div className="field"><label>Fecha</label><input type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
-          <div className="field"><label>Canal</label><select className="select" value={form.canal} onChange={(e) => set('canal', e.target.value)}><option value="">Sin canal</option>{CHANNELS.map((c) => <option key={c}>{c}</option>)}</select></div>
+          <div className="field"><label>Canal</label><Select className="select" value={form.canal} onChange={(e) => set('canal', e.target.value)}><option value="">Sin canal</option>{CHANNELS.map((c) => <option key={c}>{c}</option>)}</Select></div>
         </div>
         <div className="field"><span className="label">Tipo de contenido</span><ChoiceChips options={TIPOS} value={form.tipo} onChange={(v) => set('tipo', v)} icons={tipoIcon} /></div>
         <div className="field"><span className="label">Prioridad</span><ChoiceChips options={PRIORIDADES} value={form.prioridad} onChange={(v) => set('prioridad', v)} colors={PRIO_COLOR} icons={{}} /></div>

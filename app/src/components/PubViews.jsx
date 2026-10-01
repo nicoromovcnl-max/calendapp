@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { CHANNELS, MONTHS, PUB_ESTADOS, WEEKDAYS, fmtLong, fmtShort, projectColor, sameDay, splitMedia, timeAgo } from '../lib/data.js'
-import { ChannelTile, Cover, DemoBanner, Empty, Icon, Menu, Modal, PageHead, ProjectFilter, StatusBadge, Thumb, firstMedia, stateDot, useOutside } from './ui.jsx'
+import { ChannelTile, Cover, DemoBanner, Empty, Icon, Menu, Modal, PageHead, ProjectFilter, StatusBadge, Thumb, firstMedia, stateDot, useOutside, Select } from './ui.jsx'
 import { aggregateStatus, destLabel, destTime } from '../lib/destinations.js'
 import { CreateMenu } from './Sidebar.jsx'
 
@@ -39,15 +39,15 @@ function Filters() {
         <input className="input" placeholder="Buscar publicaciones…" aria-label="Buscar publicaciones" value={app.search} onChange={(e) => app.setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && app.setSearch('')} />
       </div>
       <ProjectFilter projects={app.projectNames} value={app.projectsFilter} onChange={app.setProjectsFilter} />
-      <select className="select filters-select" value={app.activeAccount || ''} onChange={(e) => app.setActiveAccount(e.target.value || null)} aria-label="Cuenta">
+      <Select className="select filters-select" value={app.activeAccount || ''} onChange={(e) => app.setActiveAccount(e.target.value || null)} aria-label="Cuenta">
         <option value="">Todas las cuentas</option>{app.accounts.map((a) => <option key={a.id} value={a.id}>@{a.handle}</option>)}
-      </select>
-      <select className="select filters-select" value={app.canalFilter} onChange={(e) => app.setCanalFilter(e.target.value)} aria-label="Canal">
+      </Select>
+      <Select className="select filters-select" value={app.canalFilter} onChange={(e) => app.setCanalFilter(e.target.value)} aria-label="Canal">
         <option value="">Todos los canales</option>{CHANNELS.map((c) => <option key={c}>{c}</option>)}
-      </select>
-      <select className="select filters-select" value={app.estadoFilter} onChange={(e) => app.setEstadoFilter(e.target.value)} aria-label="Estado">
+      </Select>
+      <Select className="select filters-select" value={app.estadoFilter} onChange={(e) => app.setEstadoFilter(e.target.value)} aria-label="Estado">
         <option value="">Todos los estados</option>{PUB_ESTADOS.map((c) => <option key={c}>{c}</option>)}
-      </select>
+      </Select>
       {active ? <button className="btn btn-ghost btn-sm" onClick={() => { app.setProjectsFilter([]); app.setCanalFilter(''); app.setEstadoFilter(''); app.setActiveAccount(null) }}><Icon name="x" size={13} /> Limpiar</button> : null}
     </div>
   )

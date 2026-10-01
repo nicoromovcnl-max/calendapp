@@ -27,6 +27,15 @@ Publicar lo programado lo hace el backend, no el navegador. Hay que **llamar** a
 - La renovación de tokens (`?job=refresh`) va en `vercel.json` una vez al día (compatible con el plan gratuito).
 - Es seguro llamar varias veces: cada destino se reserva de forma atómica y no se publica dos veces.
 
+### Programador fiable (recomendado): cron-job.org, cada minuto
+GitHub Actions no garantiza la hora (puede tardar horas en empezar y saltarse ejecuciones). Para publicar a la hora exacta:
+1. Crea una cuenta gratuita en **cron-job.org** → *Create cronjob*.
+2. **URL:** `https://TU-DOMINIO/api/cron?job=publish`
+3. **Schedule:** cada 1 minuto.
+4. En *Advanced → Headers* añade `Authorization` con valor `Bearer TU_CRON_SECRET` (el mismo de Vercel).
+5. Guarda. En CalendApp → Ajustes → Integraciones, la fila **Programador de publicaciones** debe pasar a «Activo».
+- Si algo programado se retrasa, esa misma fila muestra cuántas están vencidas y tiene el botón **Publicar vencidas ahora**. Además, mientras un administrador tiene la app abierta, las vencidas se publican solas como respaldo.
+
 ## 5. Primera prueba real
 1. Abre la app, inicia sesión con el acceso de equipo (misma contraseña que `ADMIN_PASSWORD` para abrir la sesión del servidor).
 2. Ajustes → Integraciones → *Conectar Instagram* → autoriza en Instagram.

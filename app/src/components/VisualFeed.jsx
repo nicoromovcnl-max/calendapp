@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { fmtLong, fmtShort, hashtagsOf, initials, projectColor, splitMedia } from '../lib/data.js'
 import { prettyProject } from '../lib/projects.js'
-import { ChannelTile, Cover, DemoBanner, Icon, Modal, PageHead, StatusBadge, stateDot, tipoIcon, useOutside } from './ui.jsx'
+import { ChannelTile, Cover, DemoBanner, Icon, Modal, PageHead, StatusBadge, stateDot, tipoIcon, useOutside, Select } from './ui.jsx'
 import { aggregateStatus, destLabel } from '../lib/destinations.js'
 import { CreateMenu } from './Sidebar.jsx'
 
@@ -181,17 +181,17 @@ export default function VisualFeed() {
       <div className="feed-controls">
         <div className="field">
           <label htmlFor="vf-proyecto">Proyecto</label>
-          <select id="vf-proyecto" className="select" value={activeProject || ''} onChange={(e) => pickProject(e.target.value)} disabled={unlinked && !projects.length}>
+          <Select id="vf-proyecto" className="select" value={activeProject || ''} onChange={(e) => pickProject(e.target.value)} disabled={unlinked && !projects.length}>
             {!activeProject && <option value="">Sin proyecto</option>}
             {projects.map(([name, n]) => <option key={name} value={name}>{name} · {n}</option>)}
-          </select>
+          </Select>
         </div>
         <div className="field">
           <label htmlFor="vf-cuenta">Cuenta</label>
-          <select id="vf-cuenta" className="select" value={account?.id || ''} onChange={(e) => app.setActiveAccount(e.target.value || null)}>
+          <Select id="vf-cuenta" className="select" value={account?.id || ''} onChange={(e) => app.setActiveAccount(e.target.value || null)}>
             <option value="">Según el proyecto</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>@{a.handle}</option>)}
-          </select>
+          </Select>
         </div>
         <div className="field">
           <span className="label">Tipo de contenido</span>
@@ -218,10 +218,10 @@ export default function VisualFeed() {
           {unlinked && app.social.backend.authenticated && !app.demo && (
             <div className="field" style={{ marginTop: 16 }}>
               <label htmlFor="vf-link">Asociar @{account.handle} a un proyecto</label>
-              <select id="vf-link" className="select" value="" onChange={(e) => { const p = app.projects.find((x) => x.name === e.target.value); if (p) app.social.setAccountProject(account.id, p.id) }}>
+              <Select id="vf-link" className="select" value="" onChange={(e) => { const p = app.projects.find((x) => x.name === e.target.value); if (p) app.social.setAccountProject(account.id, p.id) }}>
                 <option value="">Selecciona un proyecto…</option>
                 {app.projectNames.map((p) => <option key={p}>{p}</option>)}
-              </select>
+              </Select>
             </div>
           )}
           <ul className="feed-tips">
