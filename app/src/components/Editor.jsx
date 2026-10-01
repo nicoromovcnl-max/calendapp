@@ -4,7 +4,7 @@ import {
   CHANNELS, PUB_ESTADOS, TIPOS, readAsDataUrl, scriptUploadFile, splitMedia, thumbOf, toInputDate,
 } from '../lib/data.js'
 import { TIMEZONES, combineDateTime, defaultTz, destLabel, destTime, pubRef } from '../lib/destinations.js'
-import { AccountStatusBadge } from './ui.jsx'
+import { AccountStatusBadge, Select } from './ui.jsx'
 import { prettyProject } from '../lib/projects.js'
 import { ChannelTile, Cover, Icon, Modal, ProjectAvatar, StatusBadge, tipoIcon } from './ui.jsx'
 
@@ -135,13 +135,52 @@ export function PostPreview({ form, accountHandle }) {
       </div>
     )
   }
+  const tipo = form.tipo
+  const avatar = <ProjectAvatar name={form.proyecto || '?'} size={32} />
+  if (tipo === 'historia') {
+    return (
+      <div className="phone vertical story">
+        <div className="p-media tall" style={{ background: '#111' }}>
+          <Cover media={first} tipo={tipo} iconSize={40} />
+          <div className="story-top"><i className="story-bar" /><div className="story-head">{avatar}<b>{handle}</b><small>Ahora</small><span style={{ marginLeft: 'auto' }}><Icon name="more" size={16} /></span></div></div>
+          <div className="story-bottom"><span>Enviar mensaje</span><Icon name="heart" size={20} /><Icon name="send" size={20} /></div>
+        </div>
+        <p className="muted preview-note">Las historias se publican sin texto: Instagram no admite pie de foto por API.</p>
+      </div>
+    )
+  }
+  if (tipo === 'reel' || tipo === 'video') {
+    return (
+      <div className="phone vertical reel">
+        <div className="p-media tall" style={{ background: '#111' }}>
+          <Cover media={first} tipo={tipo} iconSize={40} />
+          <div className="reel-top"><b>Reels</b><Icon name="camera" size={18} /></div>
+          <div className="reel-side"><span><Icon name="heart" size={22} /><small>0</small></span><span><Icon name="message" size={22} /><small>0</small></span><span><Icon name="send" size={22} /></span><span><Icon name="more" size={22} /></span></div>
+          <div className="reel-bottom">
+            <div className="reel-user">{avatar}<b>{handle}</b><em>Seguir</em></div>
+            <div className="reel-copy">{copy ? copy.slice(0, 140) : 'El texto aparecerá aquí…'}</div>
+            <small>♪ Audio original · {handle}</small>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  if (tipo === 'texto') {
+    return (
+      <div className="phone">
+        {head('Ahora')}
+        <div className="p-copy" style={{ paddingTop: 0 }}>{copy ? <><b>{handle}</b>{copy}</> : placeholder}</div>
+        <p className="muted preview-note" style={{ paddingTop: 0 }}>Instagram necesita siempre una imagen o un vídeo: una publicación solo de texto no se puede publicar en Instagram.</p>
+      </div>
+    )
+  }
   return (
     <div className="phone">
-      {head(form.tipo === 'reel' ? 'Reel' : 'Ahora')}
+      {head('Ahora')}
       {isFeedImage
-        ? <div className={`p-media ${form.image_fit === 'crop' ? '' : 'contain'}`} style={{ aspectRatio: ratioOf(form.image_ratio, natural) }}><Cover media={first} tipo={form.tipo} iconSize={36} />{n > 1 && <span className="mc-count" style={{ position: 'absolute', top: 10, right: 10 }}>1/{n}</span>}</div>
+        ? <div className={`p-media ${form.image_fit === 'crop' ? '' : 'contain'}`} style={{ aspectRatio: ratioOf(form.image_ratio, natural) }}><Cover media={first} tipo={tipo} iconSize={36} />{n > 1 && <span className="mc-count" style={{ position: 'absolute', top: 10, right: 10 }}>1/{n}</span>}</div>
         : media('')}
-      <div className="p-actions"><Icon name="heart" size={20} /><Icon name="message" size={20} /><Icon name="send" size={20} /><span className="sp"><Icon name="bookmark" size={20} /></span></div>
+      <div className="p-actions"><Icon name="heart" size={20} /><Icon name="message" size={20} /><Icon name="send" size={20} />{tipo === 'carrusel' && n > 1 && <span className="dots">{Array.from({ length: Math.min(n, 10) }, (_, i) => <i key={i} className={i === 0 ? 'on' : ''} />)}</span>}<span className="sp"><Icon name="bookmark" size={20} /></span></div>
       <div className="p-copy">{copy ? <><b>{handle}</b>{copy}</> : placeholder}</div>
     </div>
   )
@@ -309,17 +348,17 @@ export default function Editor() {
               <div className="field-row">
                 <div className="field">
                   <label htmlFor="e-proyecto">Proyecto *</label>
-                  <select id="e-proyecto" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
+                  <Select id="e-proyecto" className="select" value={form.proyecto} onChange={(e) => set('proyecto', e.target.value)}>
                     <option value="">Selecciona…</option>
                     {[...new Set([...app.projectNames, form.proyecto].filter(Boolean))].map((p) => <option key={p}>{p}</option>)}
-                  </select>
+                  </Select>
                 </div>
                 <div className="field">
                   <label htmlFor="e-canal">Canal</label>
-                  <select id="e-canal" className="select" value={form.canal} onChange={(e) => set('canal', e.target.value)}>
+                  <Select id="e-canal" className="select" value={form.canal} onChange={(e) => set('canal', e.target.value)}>
                     <option value="">Sin canal</option>
                     {canalList.map((c) => <option key={c}>{c}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
               <DestinationPicker app={app} project={form.proyecto} selected={selected} existing={existing} disabledReason={disabledReason}
@@ -365,17 +404,17 @@ export default function Editor() {
                 <div className="field"><label htmlFor="e-fecha">Fecha *</label><input id="e-fecha" type="date" className="input" value={form.fecha} onChange={(e) => set('fecha', e.target.value)} /></div>
                 <div className="field"><label htmlFor="e-hora">Hora</label><input id="e-hora" type="time" className="input" value={hora} disabled={!usesDestinations} onChange={(e) => setHora(e.target.value)} /></div>
                 <div className="field"><label htmlFor="e-tz">Zona horaria</label>
-                  <select id="e-tz" className="select" value={tz} disabled={!usesDestinations} onChange={(e) => setTz(e.target.value)}>
+                  <Select id="e-tz" className="select" value={tz} disabled={!usesDestinations} onChange={(e) => setTz(e.target.value)}>
                     {[...new Set([...TIMEZONES, tz])].map((z) => <option key={z} value={z}>{z.replace('_', ' ')}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
               {!isNew && (
                 <div className="field-row">
                   <div className="field"><label htmlFor="e-estado">Estado en la hoja</label>
-                    <select id="e-estado" className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>
+                    <Select id="e-estado" className="select" value={form.estado} onChange={(e) => set('estado', e.target.value)}>
                       <option value="">Sin estado</option>{PUB_ESTADOS.map((s) => <option key={s}>{s}</option>)}
-                    </select>
+                    </Select>
                   </div>
                   <div className="field"><label htmlFor="e-url">URL de la publicación</label><input id="e-url" className="input" value={form.url_post} onChange={(e) => set('url_post', e.target.value)} placeholder="https://…" /></div>
                 </div>

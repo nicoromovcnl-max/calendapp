@@ -9,8 +9,9 @@ import { now } from './db.js'
 import { MetaException } from './meta-exception.js'
 import { queryOf, sendJson } from './http.js'
 
-async function publishDue(req, budgetMs) {
+export async function publishDue(req, budgetMs) {
   const started = Date.now()
+  await Repo.setState('scheduler_last_run', now())
   const out = []
   for (const id of await Repo.dueChannelIds()) {
     if (Date.now() - started > budgetMs) break // el resto se retoma en la siguiente ejecución

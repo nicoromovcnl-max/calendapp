@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { PRIORIDADES, REQ_ESTADOS, fmtFull, fmtShort, isPendingRequest, splitMedia } from '../lib/data.js'
-import { ChannelTile, DemoBanner, Empty, Icon, Kpis, Modal, PageHead, PriorityLabel, ProjectPill, StatusBadge, Thumb, tipoIcon } from './ui.jsx'
+import { ChannelTile, DemoBanner, Empty, Icon, Kpis, Modal, PageHead, PriorityLabel, ProjectPill, StatusBadge, Thumb, tipoIcon, Select } from './ui.jsx'
 
 function useNarrow(q = '(max-width: 820px)') {
   const [m, setM] = useState(() => window.matchMedia(q).matches)
@@ -138,11 +138,11 @@ export default function Requests() {
 
       <div className="toolbar">
         <div className="search"><Icon name="search" size={15} /><input className="input" placeholder="Buscar peticiones…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <select className="select filters-select" value={proyecto} onChange={(e) => setProyecto(e.target.value)}><option value="">Todos los proyectos</option>{projects.map((p) => <option key={p}>{p}</option>)}</select>
-        <select className="select filters-select" value={estado} onChange={(e) => setEstado(e.target.value)}>
+        <Select className="select filters-select" value={proyecto} onChange={(e) => setProyecto(e.target.value)}><option value="">Todos los proyectos</option>{projects.map((p) => <option key={p}>{p}</option>)}</Select>
+        <Select className="select filters-select" value={estado} onChange={(e) => setEstado(e.target.value)}>
           <option value="">Todos los estados</option><option value="pending">Por revisar</option>{REQ_ESTADOS.map((s) => <option key={s}>{s}</option>)}
-        </select>
-        <select className="select filters-select" value={prioridad} onChange={(e) => setPrioridad(e.target.value)}><option value="">Prioridad</option>{PRIORIDADES.map((p) => <option key={p}>{p}</option>)}</select>
+        </Select>
+        <Select className="select filters-select" value={prioridad} onChange={(e) => setPrioridad(e.target.value)}><option value="">Prioridad</option>{PRIORIDADES.map((p) => <option key={p}>{p}</option>)}</Select>
       </div>
 
       <div className={`split ${selected && !narrow ? 'with-panel' : ''}`}>

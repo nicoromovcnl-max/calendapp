@@ -140,6 +140,16 @@ export const dueChannelIds = async () => (await query(
   `SELECT id FROM publication_channels WHERE (status = 'scheduled' AND scheduled_at <= $1) OR (status = 'publishing' AND container_id IS NOT NULL AND locked_at < $2) ORDER BY scheduled_at`,
   [now(), isoAfter(-60)])).rows.map((r) => Number(r.id))
 
+export const setState = (key, value) => query('INSERT INTO app_state (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', [key, value])
+export const getState = async (key) => (await one(query, 'SELECT value FROM app_state WHERE key = $1', [key]))?.value ?? null
+
+// Estado del programador: última ejecución y destinos programados cuya hora ya pasó.
+export async function schedulerInfo() {
+  const over = await one(query, `SELECT COUNT(*)::int AS n FROM publication_channels WHERE status = 'scheduled' AND scheduled_at <= $1`, [now()])
+  const pend = await one(query, `SELECT COUNT(*)::int AS n FROM publication_channels WHERE status = 'scheduled' AND scheduled_at > $1`, [now()])
+  return { last_run: await getState('scheduler_last_run'), overdue: over.n, upcoming: pend.n }
+}
+
 export const cleanStates = () => query('DELETE FROM oauth_states WHERE created_at < $1', [isoAfter(-900)])
 export async function saveState(state, projectId, sessionHash) {
   await cleanStates()

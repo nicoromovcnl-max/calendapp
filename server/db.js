@@ -56,6 +56,7 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_events_channel ON publication_events (channel_id, at)`,
   `CREATE TABLE IF NOT EXISTS oauth_states (state TEXT PRIMARY KEY, project_id TEXT, session_hash TEXT NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT NOT NULL, at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT)`,
 ]
 
 async function migrate(d) {

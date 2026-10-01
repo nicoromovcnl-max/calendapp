@@ -101,6 +101,12 @@ try {
   R = await pub('corfu|2026-09-29|fmt-bad', { image_ratio: '7:3', destinations: [D(ACC)] }); ok('formato de imagen no válido rechazado', R.ok === false)
   R = (await get('bootstrap')).publications.find((x) => x.ref.endsWith('fmt-sq-crop')); ok('el formato elegido se guarda y se devuelve', R.image_ratio === '1:1' && R.image_fit === 'crop')
 
+  // programador: estado y ejecución manual de lo vencido
+  R = await pub('corfu|2026-09-29|vencida', { destinations: [D(ACC, 'scheduled', { scheduled_at: new Date(Date.now() + 1500).toISOString() })] }); const DV = R.destinations[0].id
+  await new Promise((r) => setTimeout(r, 2200))
+  R = (await get('bootstrap')).scheduler; ok('bootstrap informa de publicaciones vencidas', R.overdue >= 1)
+  R = await post('scheduler/run'); ok('«publicar vencidas» (admin) las publica', R.ok === true && R.results.some((x) => x.id === DV && x.status === 'published'))
+  R = (await get('bootstrap')).scheduler; ok('tras ejecutarlo queda constancia de la última ejecución y sin vencidas', !!R.last_run && R.overdue === 0)
   // scheduler por HTTP con CRON_SECRET (sin navegador)
   ok('cron sin secreto rechazado', (await fetch(`${APP}/api/cron`)).status === 401)
   R = await pub('corfu|2026-09-29|cron', { caption: 'Auto', destinations: [D(ACC, 'scheduled', { scheduled_at: new Date(Date.now() + 2500).toISOString() })] })

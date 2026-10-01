@@ -54,6 +54,8 @@ export function useSocial({ demo, toast }) {
   const [serverAccounts, setServerAccounts] = useState([])
   const [destinations, setDestinations] = useState([])
   const [serverPubs, setServerPubs] = useState([])
+  const [scheduler, setScheduler] = useState(null)
+  const autoRun = useRef(0)
   const [platforms, setPlatforms] = useState(PLATFORMS_FALLBACK)
   const [events, setEvents] = useState([])
   const [demoOff, setDemoOff] = useState(() => new Set()) // cuentas demo "desconectadas" (simulación)
@@ -69,6 +71,7 @@ export function useSocial({ demo, toast }) {
       setServerAccounts((r.accounts || []).map(fromServer))
       setDestinations((r.destinations || []).map((d) => ({ ...normalizeDestination(d), ref: d.ref })))
       setServerPubs(r.publications || [])
+      setScheduler(r.scheduler || null)
       if (r.platforms?.length) setPlatforms(r.platforms)
       setEvents((r.events || []).map(normalizeEvent))
     } catch (e) {
@@ -138,6 +141,19 @@ export function useSocial({ demo, toast }) {
   const renewToken = useCallback(async (id) => { await call('accounts/refresh', { method: 'POST', body: { id } }); await bootstrap(); toast.success('Token renovado') }, [call, bootstrap, toast])
   const checkAccount = useCallback(async (id) => { const r = await call('accounts/check', { method: 'POST', body: { id } }); await bootstrap(); return r }, [call, bootstrap])
 
+  // Publica lo programado cuya hora ya pasó. El cron externo es el principal; esto es el respaldo del administrador.
+  const runScheduler = useCallback(async () => {
+    const r = await call('scheduler/run', { method: 'POST', body: {}, timeout: 90000 }, { silent: true })
+    await bootstrap()
+    return r
+  }, [call, bootstrap])
+  useEffect(() => {
+    if (demo || backend.state !== 'online' || !backend.authenticated || !scheduler?.overdue || busy) return
+    if (Date.now() - autoRun.current < 45000) return
+    autoRun.current = Date.now()
+    runScheduler().catch(() => {})
+  }, [demo, backend.state, backend.authenticated, scheduler, busy, runScheduler])
+
   const savePublicationDestinations = useCallback(async (payload) => {
     const r = await call('publications/save', { method: 'POST', body: payload })
     const list = (r.destinations || []).map((d) => ({ ...normalizeDestination(d), ref: payload.ref }))
@@ -162,7 +178,7 @@ export function useSocial({ demo, toast }) {
   }, [events])
 
   return {
-    backend, platforms, serverPubs, serverPubsByRef, eventsByDest, deletePublication, accounts, destinations, destinationsByRef, busy, bootstrap, login, logout, connectInstagram, addAccount, disconnectAccount, removeAccount,
+    backend, platforms, scheduler, runScheduler, serverPubs, serverPubsByRef, eventsByDest, deletePublication, accounts, destinations, destinationsByRef, busy, bootstrap, login, logout, connectInstagram, addAccount, disconnectAccount, removeAccount,
     setAccountProject, renewToken, checkAccount, savePublicationDestinations, publishDestination, cancelDestination,
   }
 }
