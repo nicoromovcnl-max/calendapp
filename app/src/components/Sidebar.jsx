@@ -103,6 +103,7 @@ export function UserMenu({ up = true }) {
             : <button className="pop-item" onClick={() => { app.enterDemo(); setOpen(false) }}><Icon name="flame" size={15} /> Ver modo demo</button>}
           {app.isAuth && <button className="pop-item" onClick={() => { app.setView('settings'); setOpen(false) }}><Icon name="sliders" size={15} /> Ajustes</button>}
           <a className="pop-item" href="./help.html"><Icon name="info" size={15} /> Ayuda</a>
+          <a className="pop-item" href="./privacy.html" target="_blank" rel="noreferrer"><Icon name="lock" size={15} /> Política de privacidad</a>
         </div>
       )}
     </div>

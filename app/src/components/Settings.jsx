@@ -204,6 +204,7 @@ export default function Settings() {
               <Row title={app.isAuth ? 'Acceso de equipo activo' : 'Sin acceso de equipo'} sub={`Rol: ${app.isAuth ? 'Admin' : 'Solicitante'}`}>
                 {app.isAuth ? <button className="btn" onClick={app.logout}><Icon name="logout" size={14} /> Cerrar sesión</button> : <button className="btn btn-primary" onClick={() => app.setShowAuth(true)}><Icon name="lock" size={14} /> Acceso del equipo</button>}
               </Row>
+              <Row title="Política de privacidad" sub="Qué datos trata CalendApp y cómo eliminarlos."><a className="btn btn-sm" href="./privacy.html" target="_blank" rel="noreferrer">Abrir <Icon name="external" size={12} /></a></Row>
               <Row title="Modo demo" sub="Explora la app con datos de ejemplo, sin tocar la hoja.">
                 <button type="button" className={`switch ${app.demo ? 'on' : ''}`} onClick={() => (app.demo ? app.exitDemo() : app.enterDemo())} role="switch" aria-checked={app.demo} aria-label="Modo demo" />
               </Row>
