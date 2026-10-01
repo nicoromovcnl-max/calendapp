@@ -39,8 +39,9 @@ export async function login(req, res, password) {
   const t = Math.floor(Date.now() / 1000)
   await query('DELETE FROM login_attempts WHERE at < $1', [t - 900])
   if ((await query('SELECT COUNT(*)::int AS n FROM login_attempts WHERE ip = $1', [ip])).rows[0].n >= 8) fail('rate_limited', 'Demasiados intentos. Espera unos minutos.', 429)
-  const plain = cfg.get('ADMIN_PASSWORD')
-  if (!(plain !== '' && cryptoBox.safeEqual(plain, password))) {
+  // Se ignoran espacios o saltos de línea al principio/final (error típico al pegar el valor en Vercel).
+  const plain = cfg.get('ADMIN_PASSWORD').trim()
+  if (!(plain !== '' && cryptoBox.safeEqual(plain, String(password).trim()))) {
     await query('INSERT INTO login_attempts (ip, at) VALUES ($1, $2)', [ip, t])
     await new Promise((r) => setTimeout(r, 700))
     return false

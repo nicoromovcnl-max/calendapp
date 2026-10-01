@@ -57,8 +57,8 @@ function ServerGroup() {
       )}
       {backend.state === 'online' && !backend.authenticated && (
         <form className="row-item" onSubmit={login}>
-          <div className="grow field"><label htmlFor="srv-pw">Contraseña del servidor</label><input id="srv-pw" type="password" className="input" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Contraseña de administración" />
-            {err && <span style={{ color: 'var(--red)', fontSize: 12, fontWeight: 600 }}>{err}</span>}</div>
+          <div className="grow field"><label htmlFor="srv-pw">Contraseña del servidor</label><input id="srv-pw" type="password" autoComplete="new-password" className="input" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Contraseña de administración" />
+            {err && <span style={{ color: 'var(--red)', fontSize: 12, fontWeight: 600 }}>{err}{/incorrecta/i.test(err) ? ' Es la contraseña del servidor (ADMIN_PASSWORD de Vercel), no la del acceso del equipo.' : ''}</span>}</div>
           <button className="btn btn-primary" type="submit" style={{ alignSelf: 'flex-end' }} disabled={!pw}>Iniciar sesión</button>
         </form>
       )}
